@@ -9,8 +9,8 @@ class Linklist:
 
     def insertBegaining(self, data):
         new_node = Node(data)
-        new_node.next = self.head
         self.head = new_node
+        new_node.next = self.head
 
         return
     def insertEnd(self, data):

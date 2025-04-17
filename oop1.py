@@ -13,9 +13,10 @@ class dept(university):
         print(f'dept. name is {self.deptname}')
 
 class student(dept):
-    def __init__(self,uniname, location,deptname, name, id):
+    def __init__(self,uniname, location,deptname, name, id,result):
         self.name = name
         self.id= id
+        self.result = result
         dept.__init__(self, uniname,location,deptname)
     def getstudent(self):
         print(f'name is :{self.name} and id:{self.id}')
