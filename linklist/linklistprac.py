@@ -8,11 +8,10 @@ class Linklist:
         self.head = None
 
     def insertBegaining(self, data):
-        new_node = Node(data)
+        new_node = Node(data, self.head)
         self.head = new_node
-        new_node.next = self.head
-
         return
+    
     def insertEnd(self, data):
         new_node = Node(data)
 
@@ -91,12 +90,13 @@ class Linklist:
     def reverse(self):
         prev = None
         itr = self.head
-        while itr.next:
+        while itr:
             next=itr.next
             itr.next=prev
             prev=itr
             itr=next
         self.head=prev
+        
         return
 
     def printlinklist(self):
@@ -114,30 +114,33 @@ class Linklist:
     
 if __name__=='__main__':
     linklist = Linklist()
-    linklist.insertBegaining(5)
-    print('5 inserted')
-    linklist.insertBegaining(6)
-    print('6 inserted')
-    linklist.insertBegaining(7)
-    print('7 inserted')
-    print('--------')
+    # linklist.insertBegaining(5)
+    # print('5 inserted')
+    # linklist.insertBegaining(6)
+    # print('6 inserted')
+    # linklist.insertBegaining(7)
+    # print('7 inserted')
+    # print('--------')
+    # linklist.printlinklist()
     linklist.insertEnd(8)
     print('8 inserted end')
     linklist.insertEnd(9)
     print('9 inserted end')
+    linklist.insertEnd(10)
+    print('10 inserted end')
 
     linklist.printlinklist()
 
-    linklist.insertAtPosition(3, 1)
-    print('pos printed')
+    # linklist.insertAtPosition(3, 1)
+    # print('pos printed')
 
-    linklist.searchElement(8)
-    linklist.getLength()
+    # linklist.searchElement(8)
+    # linklist.getLength()
 
-    linklist.printlinklist()
+    # linklist.printlinklist()
 
-    linklist.deleteAtPosition(0)
-    linklist.printlinklist()
+    # linklist.deleteAtPosition(0)
+    # linklist.printlinklist()
 
     linklist.reverse()
     linklist.printlinklist()
