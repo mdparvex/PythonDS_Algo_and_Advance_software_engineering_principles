@@ -4,7 +4,7 @@ def longestSubstring(word):
     res = 0
     arr = []
     for r in range(len(word)):
-        if word[r] in arr:
+        while word[r] in arr:
             arr.pop(0)
             l+=1
         arr.append(word[r])
@@ -12,5 +12,5 @@ def longestSubstring(word):
     return res
 
 
-length = longestSubstring('ababx')
+length = longestSubstring('aabbbcabbcd')
 print(length)
