@@ -14,4 +14,4 @@ def productExceptSelf(nums):
         res[k]=preProduct[k]*posProduct[k]
     return res
 
-print(productExceptSelf([1,2,3,4]))
+print(productExceptSelf([2,3,4,5]))
