@@ -14,4 +14,4 @@ def rotate(nums, k):
     reverse(k, len(nums)-1,nums)
     return nums
 
-print(rotate[1,2,3,4,5,6,7], 3)
+print(rotate([1,2,3,4,5,6,7], 3))
