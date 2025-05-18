@@ -13,4 +13,4 @@ def subsets(nums):
         subset_with_first.append([first_element] +set)
     return subset_without_first + subset_with_first
 
-print(subsets([1,2,3]))
+print(subsets([2,3,6,7]))
