@@ -1,3 +1,4 @@
+#time complexity O(n logn), space logn
 def quicksort(array):
     less=[]
     equal=[]

@@ -1,3 +1,4 @@
+#time complexity O(n logn), space constant
 def mergesort(arr):
 	if len(arr)>1:
 
@@ -33,6 +34,6 @@ def mergesort(arr):
 
 	return arr
 
-arr = [7,3,89,23,5,12,4,1]
+arr = [2,0,2,1,1,0]
 res = mergesort(arr)
 print(arr)
