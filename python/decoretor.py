@@ -15,4 +15,23 @@ def time_func(func):
 def test():
     print('hello')
 
-test()
+#test()
+#applying multiple decoretor
+
+def bold_decoretor(func):
+    def wrapper(*args, **kwargs):
+        print('inside first decoretor')
+        return "<b>" + func(*args, **kwargs) + "</b>"
+    return wrapper
+def italic_decorator(func):
+    def wrapper(*args, **kwargs):
+        print('inside second decoretor')
+        return "<i>" + func(*args, **kwargs) + "</i>"
+    return wrapper
+
+@italic_decorator
+@bold_decoretor
+def get_text(text):
+    return text
+
+print(get_text('hello world'))
