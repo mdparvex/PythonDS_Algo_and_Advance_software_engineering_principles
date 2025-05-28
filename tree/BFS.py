@@ -1,46 +1,41 @@
-class BinarySearchTreeNode():
-    def __init__(self,data):
+class TreeNode():
+    def __init__(self, data):
         self.data = data
         self.left = None
         self.right = None
 
     def add_child(self, data):
-        if data == self.data:
+        if data == self.data or data==None:
             return
         if data<self.data:
             if self.left:
                 self.left.add_child(data)
             else:
-                self.left = BinarySearchTreeNode(data)
+                self.left = TreeNode(data)
         else:
             if self.right:
                 self.right.add_child(data)
             else:
-                self.right = BinarySearchTreeNode(data)
-    
-    #left -> root -> right
-    def inorder(self):
-        elements = []
-        
-        #traverse left
+                self.right = TreeNode(data)
+
+    def level_order_traversal(self, elements, level):
+        if len(elements)<=level:
+            elements.append([])
+        if self.data:
+            elements[level].append(self.data)
         if self.left:
-            elements += self.left.inorder()
-        #traverse root
-        elements.append(self.data)
-        #traverse right
+            self.left.level_order_traversal(elements, level+1)
         if self.right:
-            elements += self.right.inorder()
-        
+            self.right.level_order_traversal(elements, level+1)
+
         return elements
-    
+
 def insert_data(arr):
-    root = BinarySearchTreeNode(arr[0])
+    root = TreeNode(arr[0])
     for val in arr[1:]:
         root.add_child(val)
     return root
 if __name__ == '__main__':
     data = [15,12,20,8,13,17,27,7,9,12,14]
     build_tree = insert_data(data)
-    print(build_tree.inorder())
-
-
+    print(build_tree.level_order_traversal([],0))
