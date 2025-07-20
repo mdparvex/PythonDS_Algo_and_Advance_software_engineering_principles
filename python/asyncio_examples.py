@@ -85,3 +85,60 @@ async def main():
     )
 
 asyncio.run(main())
+
+import asyncio
+from threading import Thread
+import time
+
+
+# -----------------------------
+# The background async worker
+# -----------------------------
+def run_event_loop(loop):
+    """Start the event loop in a new thread"""
+    asyncio.set_event_loop(loop)
+    print("[worker thread] Starting async loop...")
+    loop.run_forever()
+
+
+async def process_task(task_id):
+    print(f"[async task] Processing task {task_id}...")
+    await asyncio.sleep(2)  # Simulate async I/O work
+    print(f"[async task] Done with task {task_id}")
+
+
+# -----------------------------
+# Main code that uses threading + asyncio
+# -----------------------------
+if __name__ == "__main__":
+    # Create new event loop (not bound to main thread)
+    background_loop = asyncio.new_event_loop()
+
+    # Start the event loop in a background thread
+    t = Thread(target=run_event_loop, args=(background_loop,))
+    t.start()
+
+    # Simulate the main thread doing some synchronous work
+    print("[main thread] Submitting task 1 to async loop...")
+    background_loop.call_soon_threadsafe(asyncio.create_task, process_task(1))
+
+    time.sleep(1)
+    print("[main thread] Submitting task 2 to async loop...")
+    background_loop.call_soon_threadsafe(asyncio.create_task, process_task(2))
+
+    print("[main thread] Doing other sync work while async tasks run...")
+    time.sleep(5)
+    print("[main thread] Done.")
+#outpup
+# [worker thread] Starting async loop...
+# [main thread] Submitting task 1 to async loop...
+# [async task] Processing task 1...
+# [main thread] Submitting task 2 to async loop...
+# [main thread] Doing other sync work while async tasks run...
+# [async task] Done with task 1
+# [async task] Processing task 2...
+# [async task] Done with task 2
+# [main thread] Done.
+
+#You see how the main thread continues to run while the async tasks execute in parallel in the background thread.
+

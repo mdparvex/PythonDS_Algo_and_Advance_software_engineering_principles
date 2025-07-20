@@ -1,5 +1,5 @@
 import re
-
+import num2words
 def _normalize_transcript_words( text):
     text = re.sub(r'\d+', lambda x: num2words(int(x.group())), text)
     text = re.sub(r'[^\w\s]', '', text)

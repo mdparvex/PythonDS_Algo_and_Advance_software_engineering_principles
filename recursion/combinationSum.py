@@ -21,7 +21,7 @@ def combinationSum1(candidate, target):
     res = []
     curr = []
 
-    def backtrat(index, remainingsum):
+    def backtrack(index, remainingsum):
         if remainingsum==0:
             res.append(curr.copy())
             return
@@ -30,9 +30,9 @@ def combinationSum1(candidate, target):
         
         for i in range(index, len(candidate)):
             curr.append(candidate[i])
-            backtrat(i, remainingsum-candidate[i])
+            backtrack(i, remainingsum-candidate[i])
             curr.pop()
-    backtrat(0,target)
+    backtrack(0,target)
     return res
 
 print(combinationSum1([2,3,6,7], 7))
