@@ -8,7 +8,7 @@ Database partitioning and sharding are techniques used to **manage large dataset
 ## 🔹 What is Database Partitioning?
 
 ### ✅ Definition:
-Partitioning is the process of **dividing a large database table into smaller, more manageable pieces (partitions)**. All the partitions remain in the same database system.
+Partitioning is the process of **dividing a large database table into smaller, more manageable pieces (partitions)**. All the partitions remain in the same database system. Same table but multiple copy. Suppose, If user come from asia we can put them in a partion, it will help to lookup efficiently. 
 
 ### ✅ Why It's Used:
 - Improves performance (queries can scan only relevant partitions)
@@ -37,28 +37,89 @@ CREATE TABLE student_results_2024 PARTITION OF student_results
 ```
 
 ### ✅ In Django (with PostgreSQL):
+While Django ORM does not natively support database partitioning, you can still use PostgreSQL partitioning by executing raw SQL during migrations or using third-party libraries. Below is a realistic example to show how you can implement range-based partitioning in Django using PostgreSQL.
 You can use the `django-postgres-extra` or `django-partial-index` packages, or handle it via raw SQL migrations.
 
-Example (Raw migration):
+1.Create Model:
 ```python
-# migrations/0002_partition.py
+# models.py
+class UserLog(models.Model):
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE)
+    log_date = models.DateField()
+    activity = models.TextField()
+
+    class Meta:
+        managed = False  # Very important! Let PostgreSQL manage the table
+        db_table = 'user_log'
+
+
+```
+managed = False tells Django not to manage this table (we’ll handle it manually with SQL)
+
+2. Create a schema migration to generate the partitioned parent table and partitions:
+```bash
+python manage.py makemigrations --empty your_app_name
+
+```
+3. Edit Migrations
+
+```python
+# migrations/000X_partition_userlog.py
+
 from django.db import migrations
 
 class Migration(migrations.Migration):
-    dependencies = [('yourapp', '0001_initial')]
+
+    dependencies = [
+        ('your_app_name', '000X_previous'),
+    ]
 
     operations = [
-        migrations.RunSQL("""
-            CREATE TABLE yourapp_logs (
-                id serial PRIMARY KEY,
-                created_at timestamp NOT NULL,
-                message text NOT NULL
-            ) PARTITION BY RANGE (created_at);
-        """)
-    ]
-```
+        migrations.RunSQL(
+            """
+            CREATE TABLE user_log (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES auth_user(id),
+                log_date DATE NOT NULL,
+                activity TEXT NOT NULL
+            ) PARTITION BY RANGE (log_date);
 
----
+            -- Partition for 2024
+            CREATE TABLE user_log_2024 PARTITION OF user_log
+            FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
+
+            -- Partition for 2025
+            CREATE TABLE user_log_2025 PARTITION OF user_log
+            FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+            """
+        ),
+    ]
+
+```
+```bash
+python manage.py migrate
+
+```
+Use in django
+```python
+from your_app.models import UserLog
+from django.utils import timezone
+
+UserLog.objects.create(
+    user=request.user,
+    log_date=timezone.now().date(),
+    activity="Logged in from Chrome browser"
+)
+
+```
+✅ Django will write the data into the correct partition based on log_date.
+Imagine you’re logging millions of rows per year — searching or deleting logs in a single user_log table would get slower over time.
+
+## With partitioning:
+- You can query only a specific partition (e.g., WHERE log_date >= '2025-01-01')
+- PostgreSQL skips scanning other partitions (thanks to constraint exclusion).
+- You can drop/archive old partitions (e.g., drop user_log_2020).
+
 
 ## 🔹 What is Database Sharding?
 
