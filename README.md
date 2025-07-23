@@ -1,2 +1,2 @@
 # PythonDS_Algo
-Python data structure and algorithm analysis and practice
+This repository contains DSA practice solution and advance software engineering principles documentation with system desigh.
