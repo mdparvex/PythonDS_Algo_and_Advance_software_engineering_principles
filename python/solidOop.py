@@ -105,6 +105,33 @@ class Square(Shape):
     def calculate_area(self):
         return self.side**2
     
+
+#The Liskov substitution principle (LSP) was introduced by Barbara Liskov at an OOPSLA conference in 1987.
+# Since then, this principle has been a fundamental part of object-oriented programming. The principle states that:
+# shapes_lsp.py
+
+from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    @abstractmethod
+    def calculate_area(self):
+        pass
+
+class Rectangle(Shape):
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+    def calculate_area(self):
+        return self.width * self.height
+
+class Square(Shape):
+    def __init__(self, side):
+        self.side = side
+
+    def calculate_area(self):
+        return self.side ** 2
+    
 #Interface segeration principles (ISP), f a class doesn’t use particular methods or attributes, then those methods and attributes should be segregated into more specific classes.
 # printers_isp.py
 
