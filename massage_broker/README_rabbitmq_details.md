@@ -640,3 +640,151 @@ Your scenario (payment → access → email → DB sync) **definitely benefits f
 **Use API**:
 
 - For **synchronous tasks** where the response must be instant (like login or data fetch).
+--------------------------------------------------------------------------------------------------------------------------
+# 📘 Message Delivery Guarantees in RabbitMQ
+
+RabbitMQ is a message broker that supports different **message delivery guarantees** depending on how it is configured. These delivery guarantees define **how many times a message may be delivered** under various failure or success conditions. The three primary delivery models are:
+
+- **At-most-once**
+- **At-least-once**
+- **Exactly-once** (not natively supported in most brokers, including RabbitMQ, but achievable via idempotency)
+
+## 🔁 1. At-most-once Delivery
+
+### ✅ Definition
+
+A message is **delivered once or not at all**. There’s no guarantee that the message will reach the consumer.
+
+### 📌 Characteristics
+
+- Fastest delivery
+- No retry or acknowledgment
+- Risk of message loss if a failure occurs
+
+### 💡 Use Cases
+
+- Non-critical logging
+- Real-time analytics dashboards
+- Metrics reporting where loss is acceptable
+
+### 🛠️ How It Works in RabbitMQ
+
+- Publisher sends a message
+- Consumer receives without acknowledgment
+- If the consumer fails, the message is lost
+
+```python
+# RabbitMQ setup with auto-acknowledgment
+channel.basic_consume(queue='log_queue',
+                      on_message_callback=callback,
+                      auto_ack=True)
+
+```
+
+## 🔁 2. At-least-once Delivery
+
+### ✅ Definition
+
+A message is **guaranteed to be delivered at least once**, but **may be delivered multiple times** if the acknowledgment from the consumer fails or is delayed.
+
+### 📌 Characteristics
+
+- Reliable
+- Requires handling duplicates in consumers
+- Message redelivery is possible
+
+### 💡 Use Cases
+
+- Financial transactions
+- Inventory management
+- Email notifications
+
+### 🛠️ How It Works in RabbitMQ
+
+- Message remains in the queue until explicitly acknowledged (ack) by the consumer
+- If the consumer crashes or fails to ack, the broker will redeliver the message
+
+```python
+# RabbitMQ setup with manual acknowledgment
+def callback(ch, method, properties, body):
+    process(body)  # Custom business logic
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+
+channel.basic_consume(queue='transaction_queue',
+                      on_message_callback=callback,
+                      auto_ack=False)
+
+```
+
+## 🔁 3. Exactly-once Delivery
+
+### ✅ Definition
+
+A message is delivered **only once and never duplicated**, even in the case of failure.
+
+### 📌 Characteristics
+
+- Ideal but **very hard** to implement over distributed systems
+- Requires **idempotent** consumers and transactional operations
+
+### 💡 Use Cases
+
+- Critical billing systems
+- Distributed ledger operations
+
+### 🛠️ How to Achieve in RabbitMQ (Workaround)
+
+RabbitMQ **does not guarantee exactly-once** out of the box, but you can **simulate** it by combining:
+
+- **Publisher confirms** (to ensure message reaches the broker)
+- **Manual consumer acknowledgment**
+- **Deduplication logic** (like storing message IDs in Redis or a DB)
+
+```python
+# Idempotent consumer logic
+processed_ids = set()
+
+def callback(ch, method, properties, body):
+    msg_id = properties.message_id
+    if msg_id in processed_ids:
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        return
+    process(body)
+    processed_ids.add(msg_id)
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+
+```
+
+## 📊 Summary Comparison Table
+
+| **Guarantee** | **Loss Possible** | **Duplicates Possible** | **Speed** | **Complexity** | **Use Case** |
+| --- | --- | --- | --- | --- | --- |
+| At-most-once | ✅   | ❌   | ⚡ Fast | 🟢 Low | Logging, stats |
+| At-least-once | ❌   | ✅   | 🔁 Medium | 🟡 Medium | Transactions, notifications |
+| Exactly-once\* | ❌   | ❌   | 🐢 Slow | 🔴 High | Billing, ledgers, critical ops |
+
+\*Exactly-once requires custom implementation using idempotent logic.
+
+## 🔄 Publisher Confirms (Optional Reliability for At-least-once)
+
+You can enable publisher confirmations to ensure messages reach RabbitMQ:
+
+```python
+channel.confirm_delivery()
+
+if channel.basic_publish(exchange='',
+                         routing_key='queue_name',
+                         body=message,
+                         properties=pika.BasicProperties(message_id=str(uuid.uuid4()))):
+    print("Message published successfully.")
+else:
+    print("Failed to publish message.")
+
+```
+
+## 🧠 Best Practice Tips
+
+- Use **manual ack** and **dead-letter exchanges (DLX)** for reliability
+- Implement **idempotency** in the consumer side if duplicates cannot be tolerated
+- Use **publisher confirms** for critical messages
+- For very strict “exactly-once” needs, consider **streaming platforms like Kafka** with consumer offsets

@@ -210,3 +210,61 @@ with socket.create_connection((hostname, 443)) as sock:
         print(ssock.getpeercert())
 
 ```
+
+## 🛡️ Man-in-the-Middle (MITM) Attack
+
+### 📉 What is a MITM Attack?
+
+A **MITM attack** occurs when an attacker secretly intercepts, alters, or eavesdrops on communication between two parties without their knowledge.
+
+#### Common Techniques
+
+- DNS spoofing
+- IP spoofing
+- Wi-Fi sniffing
+- HTTPS downgrade attacks (SSL stripping)
+
+### 🚫 How TLS Prevents MITM Attacks
+
+| **Protection Feature** | **How It Helps** |
+| --- | --- |
+| ✅ **Authentication** | Digital certificates confirm the server's identity |
+| ✅ **Encryption** | Attackers can't read encrypted messages |
+| ✅ **Integrity Checks** | MAC (Message Authentication Code) ensures data isn't tampered |
+| ✅ **Forward Secrecy** | Uses ephemeral keys so past sessions can't be decrypted |
+| ✅ **CA Trust Chain** | Certificates are only trusted if signed by a known authority |
+
+### 🧪 Example: TLS in HTTPS
+
+```lua
+Client (Browser) ------------------> Server (Website)
+   |                                        |
+   | -- Hello + Cipher Suites ------------> |
+   |                                        |
+   | <-- Certificate + Server Hello ------- |
+   |                                        |
+   | -- Encrypted session key ------------> |
+   |                                        |
+   | <--> Encrypted data (AES) <----------> |
+
+```
+
+- The attacker can **see traffic**, but can't **decrypt or modify** it without the session key or private certificate.
+
+## 🔐 4. Best Practices for Secure Communication
+
+| **Practice** | **Purpose** |
+| --- | --- |
+| 🔹 Use **TLS 1.2 or TLS 1.3** only | Older versions (e.g., SSL 3.0, TLS 1.0) are insecure |
+| 🔹 Use **strong cipher suites** | Avoid weak ciphers like RC4, DES |
+| 🔹 Enforce **HTTPS everywhere** | Redirect all HTTP to HTTPS |
+| 🔹 Implement **HSTS (HTTP Strict Transport Security)** | Prevent SSL stripping attacks |
+| 🔹 Validate **certificates properly** | Block invalid or self-signed certificates |
+| 🔹 Enable **Perfect Forward Secrecy** | Prevent compromise of past sessions |
+| 🔹 Use **DNSSEC** & secure DNS | Prevent DNS hijacking |
+
+## 🧠 Conclusion
+
+- **Encryption + TLS/SSL** = foundation of secure web communication.
+- TLS provides **authentication, confidentiality, and integrity**, preventing **MITM attacks**.
+- Regularly updating TLS configurations and enforcing best practices ensures **secure, trusted communications** between clients and servers.

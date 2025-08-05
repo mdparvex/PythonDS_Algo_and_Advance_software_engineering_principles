@@ -261,3 +261,90 @@ In a tool like **Wireshark**, if you open a page:
 | Packet Ordering | ✅ Yes | Sequence numbers |
 | Low Latency | ❌ No | Slight delay due to reliability |
 | Secure Communication | ❌ (Handled by TLS) | TCP enables TLS after handshake |
+
+## In essence:
+  - HTTP uses TCP to send and receive data. TCP handles the underlying mechanics of establishing and maintaining the connection and ensuring data integrity.
+  - HTTP defines what data is being sent (e.g., a web page request), while TCP ensures that this data gets delivered correctly and in the right order. 
+
+  Here’s a clear technical explanation of the difference between **HTTP** and **TCP**, how they work, and how they relate to each other:
+
+# 📦 HTTP vs TCP – What’s the Difference?
+
+HTTP and TCP are both communication protocols, but they operate at **different layers** of the network stack and serve **different purposes**.
+
+## 🧱 Protocol Layers
+
+| **Layer** | **Protocol** | **Description** |
+| --- | --- | --- |
+| Layer 7 | HTTP | Application layer protocol for web communication |
+| Layer 4 | TCP | Transport layer protocol for reliable data delivery |
+
+## ⚙️ What is TCP (Transmission Control Protocol)?
+
+- **Layer**: Transport Layer (Layer 4)
+- **Purpose**: Ensures reliable, ordered, and error-checked delivery of data between applications.
+- **Connection**: **Connection-oriented** (requires a handshake).
+- **Features**:
+  - Guarantees delivery of data packets.
+  - Ensures correct order of packets.
+  - Performs flow control and congestion control.
+
+### 🔁 TCP Workflow (Simplified)
+
+1. **Handshake**: 3-way handshake to establish connection.
+    - Client → Server: SYN
+    - Server → Client: SYN-ACK
+    - Client → Server: ACK
+2. **Data Transmission**: Segments are sent reliably.
+3. **Termination**: Graceful shutdown using FIN/ACK flags.
+
+## 🌐 What is HTTP (HyperText Transfer Protocol)?
+
+- **Layer**: Application Layer (Layer 7)
+- **Purpose**: Defines how clients and servers communicate over the web (sending requests and receiving responses).
+- **Built on top of**: TCP
+- **Stateless**: Each HTTP request is independent.
+- **Common Versions**: HTTP/1.1, HTTP/2, HTTP/3
+
+### 🔄 HTTP Workflow
+
+1. **Connection Established via TCP**
+2. **Request**:
+    - Client sends a GET/POST/PUT/DELETE request.
+3. **Response**:
+    - Server responds with headers and a body (e.g., HTML, JSON, images).
+
+## 🔄 Relationship Between TCP and HTTP
+
+HTTP **requires TCP** to function.
+
+- TCP handles the **delivery** of data packets.
+- HTTP defines the **format and structure** of the data.
+- Think of TCP as the **shipping service**, and HTTP as the **letter inside the package**.
+
+## 🧪 Example: Opening a Website
+
+1. You open <https://example.com>
+2. DNS resolves the IP address.
+3. **TCP connection** is established between your browser and the server (usually on port 80 or 443).
+4. **HTTP request** is sent (e.g., GET /index.html)
+5. **HTTP response** is returned (200 OK, with HTML content)
+6. TCP ensures all the pieces of the HTTP message arrive intact and in order.
+
+## 🚀 Key Differences
+
+| **Feature** | **TCP** | **HTTP** |
+| --- | --- | --- |
+| Layer | Transport (L4) | Application (L7) |
+| Use Case | Reliable data transmission | Web communication |
+| Protocol Type | Connection-oriented | Request-response |
+| Guarantees? | Delivery, order, integrity | Not guaranteed (relies on TCP) |
+| Port Example | Port 80, 443, etc. | Runs on top of TCP ports |
+| Format | Binary | Text (headers + body) |
+
+## 🧠 Analogy
+
+Imagine sending a book to a friend:
+
+- **TCP** is the **postal service** that ensures the package (data) is delivered correctly.
+- **HTTP** is the **letter** inside the box that tells your friend what the book is about and what to do with it.

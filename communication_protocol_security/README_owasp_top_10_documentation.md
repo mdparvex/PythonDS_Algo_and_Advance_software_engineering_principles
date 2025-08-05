@@ -229,3 +229,143 @@ requests.get(request.GET['url'])
 
 Use this document to audit your application and integrate OWASP Top 10 guidelines into every phase of your software development lifecycle.
 
+--------------------------------------------------------------------------------------------------------------------
+
+Here is a **technical and well-structured documentation** on common web vulnerabilities:
+
+- **Cross-Site Scripting (XSS)**
+- **SQL Injection (SQLi)**
+- Including **detailed examples** and **mitigation strategies**
+
+# 🛡️ Common Web Vulnerabilities: XSS & SQL Injection
+
+## 📌 Introduction
+
+Modern web applications are often vulnerable to **client-side and server-side attacks** due to improperly handled input or output. Two of the most common and dangerous vulnerabilities are:
+
+- **XSS (Cross-Site Scripting)**
+- **SQL Injection (SQLi)**
+
+These can lead to **data theft**, **account hijacking**, or **unauthorized access** if not properly mitigated.
+
+## 🔸 1. Cross-Site Scripting (XSS)
+
+### 🧪 What is XSS?
+
+**XSS** is a client-side attack where an attacker injects **malicious JavaScript** into web pages viewed by other users.
+
+It exploits the application’s failure to **sanitize or encode untrusted data** before rendering it in the browser.
+
+### 🧨 XSS Example
+
+#### Vulnerable code (in HTML)
+
+```html
+<p>Welcome, <%= user_input %>!</p>
+
+```
+
+#### Malicious input
+
+```php-template
+<script>alert('Hacked!');</script>
+```
+
+#### Rendered output
+
+```html
+<p>Welcome, <script>alert('Hacked!');</script>!</p>
+
+```
+
+➡ When a user loads the page, the script executes in their browser.
+
+### 🧬 Types of XSS
+
+| **Type** | **Description** |
+| --- | --- |
+| 🔹 Stored XSS | Malicious script is permanently stored in DB/server |
+| 🔹 Reflected XSS | Script is embedded in a URL/query string |
+| 🔹 DOM-based XSS | Occurs in front-end JS without involving the server |
+
+### 🛡️ How to Prevent XSS
+
+| **Mitigation Technique** | **Description** |
+| --- | --- |
+| ✅ **Output Encoding** | Encode HTML entities (< to &lt;) before rendering user input |
+| ✅ **Input Validation** | Block scripts, HTML tags, and suspicious patterns |
+| ✅ **Use CSP (Content Security Policy)** | Limit where scripts can be loaded/executed |
+| ✅ **Escape JavaScript contexts** | Don’t insert user data directly into &lt;script&gt; blocks |
+| ✅ **Framework Protection** | Use secure frameworks (e.g., React auto-escapes JSX by default) |
+| ✅ **Sanitize user input** | Use libraries like DOMPurify (JS) or Bleach (Python) to remove dangerous tags |
+
+## 🔸 2. SQL Injection (SQLi)
+
+### 🧪 What is SQL Injection?
+
+**SQL Injection** is a server-side attack where malicious SQL code is injected into a query via unsanitized user input.
+
+This allows attackers to **bypass authentication**, **read sensitive data**, **modify or delete records**, or even **execute admin commands**.
+
+### 💣 SQLi Example
+
+#### Vulnerable Python code
+
+```python
+username = request.GET.get("username")
+query = f"SELECT * FROM users WHERE username = '{username}'"
+cursor.execute(query)
+
+```
+
+#### Malicious input
+
+```bash
+' OR '1'='1
+```
+
+#### Resulting Query
+
+```sql
+SELECT * FROM users WHERE username = '' OR '1'='1'
+
+```
+
+➡ Always evaluates to true — attacker gains access to all users.
+
+### 🛡️ How to Prevent SQL Injection
+
+| **Mitigation Technique** | **Description** |
+| --- | --- |
+| ✅ **Parameterized Queries (Prepared Statements)** | Always use bound variables, not string interpolation |
+| ✅ **ORMs (Object-Relational Mappers)** | Use Django ORM, SQLAlchemy, etc. — they escape input properly |
+| ✅ **Whitelist Input Validation** | Validate that input is of the expected type/format |
+| ✅ **Limit DB Permissions** | The app DB user should not have DROP, DELETE, or GRANT privileges |
+| ✅ **Error Handling** | Hide SQL errors from users to avoid exposing query structure |
+| ✅ **Use Web Application Firewall (WAF)** | Detect and block common injection patterns |
+
+### ✅ Parameterized Query Example (Python with SQLite)
+
+```python
+username = request.GET.get("username")
+cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+
+```
+
+➡ The input is treated as data, not executable SQL.
+
+## 📊 Summary Comparison
+
+| **Vulnerability** | **Impact** | **Attack Vector** | **Prevention Strategy** |
+| --- | --- | --- | --- |
+| **XSS** | Client-side script execution | HTML/JS rendering | Encode output, use CSP, input sanitization |
+| **SQLi** | Unauthorized DB access/manipulation | SQL query injection | Parameterized queries, input validation, ORM use |
+
+## 🧠 Final Thoughts
+
+Both **XSS** and **SQL Injection** arise from improper handling of user input:
+
+- Always **treat user input as untrusted**.
+- Use **secure coding practices**, **framework protections**, and **input/output sanitization**.
+- Implement **defense-in-depth**: multiple layers of protection.
+
