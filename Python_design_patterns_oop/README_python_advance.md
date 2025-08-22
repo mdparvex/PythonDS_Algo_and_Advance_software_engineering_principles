@@ -102,7 +102,7 @@ with ManagedResource():
 
 ### 5.2 Example: Logging Decorator
 
-```
+```python
 def logger(func):
     def wrapper(*args, **kwargs):
         print(f"Calling {func.__name__}")
