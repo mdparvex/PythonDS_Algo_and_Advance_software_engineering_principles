@@ -229,7 +229,8 @@ For **best performance and security**, do this:
   - Use **Caddy** or **Cloudflare proxy**
   - Or use **H2O server** if you're advanced
 
-  here’s a **short clarification doc** you can add to your existing documentation to explain the “HTTP/3 over UDP” concern:
+
+here’s a **short clarification doc** you can add to your existing documentation to explain the “HTTP/3 over UDP” concern:
 
 **Clarification: Does HTTP/3 Lose Data Since It Uses UDP?**
 
