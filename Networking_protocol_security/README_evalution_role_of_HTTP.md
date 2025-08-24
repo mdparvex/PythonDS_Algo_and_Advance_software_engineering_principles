@@ -228,3 +228,27 @@ For **best performance and security**, do this:
 - If HTTP/3 is needed:
   - Use **Caddy** or **Cloudflare proxy**
   - Or use **H2O server** if you're advanced
+
+  here’s a **short clarification doc** you can add to your existing documentation to explain the “HTTP/3 over UDP” concern:
+
+**Clarification: Does HTTP/3 Lose Data Since It Uses UDP?**
+
+A common question arises:
+
+_“Since HTTP/3 is built on top of UDP, does it lose data like UDP can?”_
+
+**✅ Answer: No — HTTP/3 does not lose data.**
+
+- **UDP basics**: UDP is a _connectionless, unreliable_ transport protocol. On its own, it does not guarantee delivery, ordering, or retransmission. That’s why raw UDP applications (e.g., live streaming, VoIP) sometimes tolerate packet loss.
+- **QUIC on top of UDP**: HTTP/3 does not use “raw UDP.” Instead, it runs over **QUIC**, a transport protocol developed by Google and standardized by IETF. QUIC adds reliability features that UDP lacks:
+  - **Packet retransmission** (lost packets are resent).
+  - **Flow control** (prevents overwhelming the receiver).
+  - **Congestion control** (like TCP, adapts to network conditions).
+  - **Ordered delivery within streams** (ensures application-level data consistency).
+- **Benefit of QUIC vs TCP**:
+  - QUIC implements these reliability features in _user space_, not the OS kernel.
+  - This allows faster connection setup (0-RTT handshakes), multiplexed streams without head-of-line blocking, and better adaptability.
+
+**🔑 Key Takeaway**
+
+While UDP by itself can lose data, **HTTP/3 over QUIC ensures reliability equivalent to (and in some cases better than) TCP**. So users won’t experience random data loss when using HTTP/3.
