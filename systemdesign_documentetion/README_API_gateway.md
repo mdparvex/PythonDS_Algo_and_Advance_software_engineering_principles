@@ -19,7 +19,7 @@ An API Gateway **hides this complexity** by exposing a **unified API** to client
 
 ## 🔧 How It Works (Flow Diagram):
 
-```
+```scss
 Client
    |
    v
@@ -79,7 +79,7 @@ Let’s say you have these Django microservices:
 
 ### 🔧 NGINX Config for API Gateway:
 
-```
+```nginx
 server {
     listen 80;
     server_name api.myapp.com;
@@ -153,8 +153,7 @@ You can use **NGINX** as a reverse proxy to route requests based on URL path.
 
 **🧱 Architecture**
 
-text
-```
+```scss
 Client (Frontend / Mobile)
     |
     v
@@ -191,8 +190,7 @@ You can run NGINX on a separate server, inside Kubernetes as a pod, or even on E
 
 Here’s a sample NGINX config:
 
-nginx
-```
+```nginx
 server {
 
 listen 80;
@@ -279,8 +277,7 @@ Absolutely! Here's an **enhanced NGINX-based API Gateway configuration** example
 
 **🧾 nginx.conf (Full API Gateway Config)**
 
-nginx
-```
+```nginx
 worker_processes auto;
 
 events {
