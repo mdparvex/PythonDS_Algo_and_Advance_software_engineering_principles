@@ -629,7 +629,6 @@ Nginx will **round-robin requests** across Django containers.
 
 👉 This is your **production-ready API Gateway reference**. You can literally docker-compose up -d, hit your EC2 IP, and test all features (rate limiting, HTTPS, logging, auth).
 
-Would you like me to also include a **Certbot automation (for Let’s Encrypt SSL)** so that you don’t need to manually add certs in ./certs?
 
 Great question 👍 — you’ve realized an important distinction:
 
