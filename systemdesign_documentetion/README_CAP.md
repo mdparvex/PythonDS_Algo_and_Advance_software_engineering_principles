@@ -44,6 +44,9 @@ In any distributed data system, you can only guarantee **two out of three** prop
 | **Availability (A)** | Every request receives a response, even if some nodes fail. |
 | **Partition Tolerance (P)** | The system continues operating despite network partitions (loss of communication between nodes). |
 
+  - **Consistency (C)** : Every read receives the most recent write or an error. In simpler terms, all nodes in the system have the same, up-to-date data at the same time. 
+  - **Availability (A)** : Every request receives a response, even if the data isn't the most current. The system remains operational, and every request gets an answer, regardless of the state of individual nodes.
+  - **Partition Tolerance (P)** : The system continues to function and operate even if network failures (partitions) occur between nodes. This means that servers can keep working even if they can't communicate with each other.
 ### 🧠 The Trade-off
 
 ⛔ **You can’t have all three** in the presence of a network partition (which is inevitable in real-world systems).
