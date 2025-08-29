@@ -418,3 +418,139 @@ class CountryType(DjangoObjectType):
 - **Apollo Client** – frontend integration
 - **Django Debug Toolbar** – for query performance
 - **graphene-django-extras** – for pagination, filtering
+
+
+# Technical Documentation: Authentication & Security in GraphQL
+
+## 1\. Introduction
+
+Authentication and security are critical in any API. In **REST**, authentication is often tied to multiple endpoints, while in **GraphQL**, there is typically a **single endpoint** (/graphql) serving all queries and mutations. Despite the single endpoint, **GraphQL fully supports HTTP headers**, so authentication works in a very similar way to REST.
+
+This document explains **how authentication works in GraphQL**, common strategies, implementation examples in **Python/Django**, and a **reference comparison with REST**.
+
+## 2\. Authentication in GraphQL
+
+### 2.1 HTTP Headers in GraphQL
+
+GraphQL queries are transported over HTTP(S), so you can use standard HTTP headers:
+
+- **Authorization** → Bearer token or API key.
+- **Content-Type** → Usually ```text application/json ```.
+- **Custom headers** → e.g., ```text X-Client-ID ```, ```text X-Request-ID ```.
+
+#### Example HTTP Request
+
+```http
+POST /graphql
+Host: api.example.com
+Content-Type: application/json
+Authorization: Bearer <your_token>
+
+{
+  "query": "{ me { id name email } }"
+}
+```
+
+The server extracts the token from the Authorization header and authenticates the user.
+
+### 2.2 Authentication Points
+
+Authentication can be applied at two levels:
+
+1. **Middleware (Global)**
+    - Authenticates every request before executing any resolver.
+    - Example: Django middleware parses JWT and attaches user to request.context.
+2. **Resolver (Fine-grained)**
+    - Individual fields or queries can enforce access control.
+    - Example: Only allow a user to fetch **their own profile**.
+
+#### Example in Django (Graphene)
+
+```python
+import graphene
+from graphql_jwt.decorators import login_required
+
+class Query(graphene.ObjectType):
+    me = graphene.Field(UserType)
+
+    @login_required
+    def resolve_me(self, info):
+        user = info.context.user
+        return user
+```
+
+- login_required decorator checks the Authorization header.
+- Invalid or missing token → returns authentication error.
+
+## 3\. Common Authentication Strategies in GraphQL
+
+| **Strategy** | **How It Works** | **Use Case** |
+| --- | --- | --- |
+| **Bearer Token (JWT/OAuth2)** | Client sends Authorization: Bearer &lt;token&gt; header | Mobile apps, Single-page apps |
+| **API Keys** | Sent via header or query param | Server-to-server or public API |
+| **Session Cookies** | Uses browser cookies for authentication | Web apps, browser-based GraphQL clients |
+| **Custom Headers** | Pass additional metadata in headers | Multi-tenant APIs, client identification |
+
+## 4\. Authorization & Field-Level Security
+
+GraphQL allows **fine-grained authorization**:
+
+- Each resolver can check the user’s permissions.
+- Example: Restrict access to a user’s own data.
+
+class Query(graphene.ObjectType):
+
+```python
+class Query(graphene.ObjectType):
+    my_courses = graphene.List(CourseType)
+
+    @login_required
+    def resolve_my_courses(self, info):
+        user = info.context.user
+        return Course.objects.filter(student=user)
+```
+
+This ensures even with one endpoint, different users only access their authorized resources.
+
+## 5\. Common Security Best Practices
+
+1. **Use HTTPS** for encrypted communication.
+2. **Validate Authorization tokens** at the middleware level.
+3. **Apply field-level authorization** in resolvers.
+4. **Set query depth limits** to prevent abuse.
+5. **Rate-limit requests** to prevent brute-force attacks.
+
+## 6\. REST vs GraphQL Authentication Flows
+
+| **Feature / Aspect** | **REST** | **GraphQL** |
+| --- | --- | --- |
+| Endpoint | Multiple (/users, /posts) | Single (/graphql) |
+| Header Usage | Standard (Authorization) | Standard (Authorization) |
+| Authentication Location | Per endpoint | Middleware (global) & resolvers (fine-grained) |
+| Authorization Granularity | Coarse (per endpoint) | Fine-grained (per field/resolver) |
+| Token Extraction | From request headers | From request headers (same as REST) |
+| Session / Cookie Support | Yes | Yes (browser-based) |
+| Use Case Examples | RESTful web APIs | Web/mobile apps, single endpoint, microservices |
+| Security Complexity | Low-moderate | Moderate-high (fine-grained access control) |
+
+## 7\. Example Authentication Flow in GraphQL
+
+1. Client sends query with Authorization header.
+2. Middleware extracts and validates the token.
+3. Middleware attaches user object to info.context.
+4. Resolver accesses info.context.user to enforce field-level permissions.
+5. Server returns data or an authentication/authorization error.
+
+## 8\. Conclusion
+
+- GraphQL **supports HTTP headers just like REST**, so all familiar authentication mechanisms work.
+- Single endpoint does not reduce security — **middleware + resolver-level checks** provide robust protection.
+- Fine-grained field-level authorization is easier in GraphQL compared to REST.
+- Properly implemented, GraphQL authentication and authorization can be **as secure or more secure** than REST.
+
+✅ **Key Takeaways**:
+
+- Use **Authorization headers** in GraphQL like REST.
+- Apply **middleware for global authentication**.
+- Use **resolver-level checks for fine-grained access**.
+- Always secure **transport (HTTPS)** and validate tokens.
