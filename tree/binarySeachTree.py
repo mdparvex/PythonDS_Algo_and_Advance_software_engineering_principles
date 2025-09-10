@@ -22,18 +22,20 @@ class BinaryTree:
             self.data=data
 
     def printTree(self):
-        
+        tree_data = []
         if self.left:
             self.left.printTree()
+        tree_data.append(self.data)
         print(self.data)
         if self.right:
             self.right.printTree()
+        return tree_data
     #left -> root -> right
     def inorder_traversal(self, root):
         data = []
         if root:
             data = self.inorder_traversal(root.left)
-            print(root.data)
+            #print(root.data)
             data.append(root.data)
             data = data + self.inorder_traversal(root.right)
         return data
@@ -43,7 +45,7 @@ class BinaryTree:
         data = []
         if root:
             data.append(root.data)
-            print(root.data)
+            #print(root.data)
             data = data + self.preorder_traversal(root.left)
             data = data + self.preorder_traversal(root.right)
         return data
@@ -54,7 +56,7 @@ class BinaryTree:
             data = self.postorder_traversal(root.left)
             data = data + self.postorder_traversal(root.right)
             data.append(root.data)
-            print(root.data)
+            #print(root.data)
         return data
     
     def find_value(self, val):
@@ -109,12 +111,12 @@ if __name__=='__main__':
     root.insertData(25)
     root.insertData(23)
     root.insertData(30)
-    root.printTree()
-    print(root.inorder_traversal(root))
-    print(root.preorder_traversal(root))
-    print(root.postorder_traversal(root))
+    print(f'print tree: {root.printTree()}')
+    print(f'inorder traversal: {root.inorder_traversal(root)}')
+    print(f' preorder traversal: {root.preorder_traversal(root)}')
+    print(f' postorder traversal: {root.postorder_traversal(root)}')
     root.find_value(17)
-    print(f'maximum value of tree is {root.find_max()}')
-    print(f'Minimum value of tree is {root.find_min()}')
+    print(f'maximum value of tree is: {root.find_max()}')
+    print(f'Minimum value of tree is: {root.find_min()}')
     root.delete_value(16)
-    root.printTree()
+    print(f'print tree: {root.printTree()}')
