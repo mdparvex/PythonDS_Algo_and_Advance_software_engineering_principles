@@ -21,15 +21,6 @@ class BinaryTree:
         else:
             self.data=data
 
-    def printTree(self):
-        tree_data = []
-        if self.left:
-            self.left.printTree()
-        tree_data.append(self.data)
-        print(self.data)
-        if self.right:
-            self.right.printTree()
-        return tree_data
     #left -> root -> right
     def inorder_traversal(self, root):
         data = []
@@ -100,6 +91,16 @@ class BinaryTree:
                 self.data = min_val
                 self.right = self.right.delete_value(min_val)
         return self
+    
+def printTree(root):
+    tree_data = []
+    if root:
+        if root.left:
+            tree_data = printTree(root.left)
+        tree_data.append(root.data)
+        if root.right:
+            tree_data += printTree(root.right)
+    return tree_data
 
 if __name__=='__main__':
     root = BinaryTree(20)
@@ -111,7 +112,7 @@ if __name__=='__main__':
     root.insertData(25)
     root.insertData(23)
     root.insertData(30)
-    print(f'print tree: {root.printTree()}')
+    print(f'print tree: {printTree(root)}')
     print(f'inorder traversal: {root.inorder_traversal(root)}')
     print(f' preorder traversal: {root.preorder_traversal(root)}')
     print(f' postorder traversal: {root.postorder_traversal(root)}')
@@ -119,4 +120,4 @@ if __name__=='__main__':
     print(f'maximum value of tree is: {root.find_max()}')
     print(f'Minimum value of tree is: {root.find_min()}')
     root.delete_value(16)
-    print(f'print tree: {root.printTree()}')
+    print(f'print tree: {printTree(root)}')
