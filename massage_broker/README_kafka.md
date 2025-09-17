@@ -109,18 +109,22 @@ pip install kafka-python
 ### 🔹 Producer Example (Django view)
 
 ```python
-from kafka import KafkaConsumer
+# Producer Example (Django view)
+from django.http import JsonResponse
+from kafka import KafkaProducer
 import json
 
-consumer = KafkaConsumer(
-    'reading-events',
+producer = KafkaProducer(
     bootstrap_servers='localhost:9092',
-    auto_offset_reset='earliest',
-    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
-for message in consumer:
-    print(f"Received: {message.value}")
+def send_event(request):
+    event_data = {"user_id": 1, "chapter_id": 5, "action": "read"}
+    producer.send('reading-events', event_data)
+    producer.flush()
+    return JsonResponse({"status": "event sent"})
+
 ```
 
 ### 🔹 Consumer Example (background worker)
