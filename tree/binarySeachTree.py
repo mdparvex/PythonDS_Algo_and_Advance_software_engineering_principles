@@ -24,12 +24,20 @@ class BinaryTree:
     #left -> root -> right
     def inorder_traversal(self, root):
         data = []
-        if root:
-            data = self.inorder_traversal(root.left)
-            #print(root.data)
+        def dfs(root):
+            if not root:
+                return
+            dfs(root.left)
             data.append(root.data)
-            data = data + self.inorder_traversal(root.right)
+            dfs(root.right)
+        dfs(root)
         return data
+        # if root:
+        #     data = self.inorder_traversal(root.left)
+        #     #print(root.data)
+        #     data.append(root.data)
+        #     data = data + self.inorder_traversal(root.right)
+        # return data
     
     #root -> left -> right
     def preorder_traversal(self,root):
