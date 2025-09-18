@@ -165,7 +165,9 @@ Trying to instantiate `Shape()` or a subclass that does not implement `area` wil
 
 ### 5.6 Properties and descriptors
 - `@property` converts a method into a getter; pair with `@<prop>.setter` and `@<prop>.deleter` to control access.
-- Descriptors are objects that implement `__get__`, `__set__`, or `__delete__` and underlie property behavior.
+- Encapsulation → hiding implementation details while exposing a clean API.
+- Data validation → control how attributes are set or retrieved.
+- Read-only attributes → prevent direct modification of values.
 
 **Property example:**
 ```python
@@ -182,9 +184,48 @@ class Person:
         if not value:
             raise ValueError('name cannot be empty')
         self._name = value
+
+class Circle:
+    def __init__(self, radius):
+        self._radius = radius  # Conventionally, use a leading underscore for internal attributes
+
+    @property
+    def radius(self):
+        """The radius property."""
+        print("Getting radius...")
+        return self._radius
+
+    @radius.setter
+    def radius(self, value):
+        print("Setting radius...")
+        if value < 0:
+            raise ValueError("Radius cannot be negative")
+        self._radius = value
+
+    @radius.deleter
+    def radius(self):
+        print("Deleting radius...")
+        del self._radius
+
+# Usage
+my_circle = Circle(5)
+print(my_circle.radius)  # Calls the getter
+my_circle.radius = 10    # Calls the setter
+del my_circle.radius     # Calls the deleter
 ```
 
 **Descriptor example (simple typed attribute):**
+- Descriptors are objects that implement `__get__`, `__set__`, or `__delete__` and underlie property behavior.
+- `__get__(self, instance, owner)` → defines behavior when the attribute is read.
+- `__set__(self, instance, value)` → defines behavior when the attribute is assigned.
+- `__delete__(self, instance)` → defines behavior when the attribute is deleted.
+
+Descriptors are the foundation of:
+- `property`
+- `classmethod`
+- `staticmethod`
+- Many parts of Python’s internals.
+
 ```python
 class Typed:
     def __init__(self, name, expected_type):
@@ -207,7 +248,98 @@ p = Point()
 p.x = 1
 # p.x = 1.5  # would raise TypeError
 ```
+```python
+class PositiveNumber:
+    def __get__(self, instance, owner):
+        return instance._value
+    
+    def __set__(self, instance, value):
+        if value < 0:
+            raise ValueError("Value must be positive")
+        instance._value = value
 
+    def __delete__(self, instance):
+        print("Deleting value...")
+        del instance._value
+
+
+class Account:
+    balance = PositiveNumber()   # using descriptor
+
+    def __init__(self, balance):
+        self.balance = balance
+
+
+a = Account(100)
+print(a.balance)   # 100
+a.balance = 200    # valid
+print(a.balance)
+# a.balance = -50  # ❌ raises ValueError
+del a.balance # "Deleting value..."
+```
+```python
+class ReadOnly:
+    def __get__(self, instance, owner):
+        return "This value cannot be changed"
+    
+    def __set__(self, instance, value):
+        raise AttributeError("This attribute is read-only")
+
+
+class Config:
+    version = ReadOnly()
+
+
+c = Config()
+print(c.version)     # works
+# c.version = "2.0"  # ❌ AttributeError
+
+```
+**Descriptor vs @property**
+Both achieve similar goals.
+- `property` → simple, best for one attribute.
+- `descriptor` → reusable, powerful when you need shared behavior across multiple attributes.
+- `@property` is a special case of descriptor.
+- Use `@property` → simple encapsulation for one attribute.
+- Use `descriptors` → when you want reusable attribute logic for many attributes.
+- Descriptors give low-level control over attribute access in Python.
+
+With property:
+```python
+class Employee:
+    def __init__(self, salary):
+        self._salary = salary
+
+    @property
+    def salary(self):
+        return self._salary
+
+    @salary.setter
+    def salary(self, value):
+        if value < 0:
+            raise ValueError("Salary cannot be negative")
+        self._salary = value
+
+```
+With Descriptor:
+```python
+class Positive:
+    def __get__(self, instance, owner):
+        return instance._value
+
+    def __set__(self, instance, value):
+        if value < 0:
+            raise ValueError("Value must be positive")
+        instance._value = value
+
+
+class Employee:
+    salary = Positive()
+
+    def __init__(self, salary):
+        self.salary = salary
+
+```
 ---
 
 ## 6. Constructors and Object Lifecycle
