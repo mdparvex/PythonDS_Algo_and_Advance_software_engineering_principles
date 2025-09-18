@@ -184,7 +184,8 @@ class Person:
         if not value:
             raise ValueError('name cannot be empty')
         self._name = value
-
+```
+```python
 class Circle:
     def __init__(self, radius):
         self._radius = radius  # Conventionally, use a leading underscore for internal attributes
