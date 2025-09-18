@@ -21,10 +21,13 @@
 8. Special / Magic Methods (detailed)
 9. Access Modifiers and Name Mangling
 10. OOP Design Patterns (Overview)
-11. Example Use Cases in Python
-12. Best Practices
-13. Glossary
-14. Further Reading
+11. Method Resolution Order (MRO)
+12. Composition vs Inheritance
+13. Duck Typing and EAFP vs LBYL
+14. Example Use Cases in Python
+15. Best Practices
+16. Glossary
+17. Further Reading
 
 ---
 
@@ -460,10 +463,396 @@ class Animal:
             return Cat(*args, **kwargs)
         raise ValueError('unknown')
 ```
+---
+## 11. Method Resolution Order (MRO)
+Defines the order Python uses to search for methods in multiple inheritance.
+You can inspect the MRO of a class using either:
+- The `__mro__` attribute: This is a tuple containing the class and its ancestors in MRO order.
+- The `mro()` class method: This returns a list of the class and its ancestors in MRO order.
+
+```python
+class A:
+    def method(self):
+        print("Method from A")
+
+class B(A):
+    def method(self):
+        print("Method from B")
+
+class C(A):
+    def method(self):
+        print("Method from C")
+
+class D(B, C):
+    pass
+
+# Get the MRO of class D
+print(D.__mro__)
+# Output: (<class '__main__.D'>, <class '__main__.B'>, <class '__main__.C'>, <class '__main__.A'>, <class 'object'>)
+
+# Calling the method on an instance of D
+d_instance = D()
+d_instance.method()
+# Output: Method from B (because B comes before C in D's MRO)
+```
+---
+## Section 12: Composition vs Inheritance (Expanded)
+
+### **12.1 Inheritance**
+Inheritance is a mechanism where a class (child/subclass) derives attributes and methods from another class (parent/superclass). It represents an **“is-a” relationship**.
+
+✅ **When to Use:**
+- When a subclass is a more specific type of the parent class.
+- To reuse common functionality from a base class.
+- To apply polymorphism — allowing different subclasses to share the same interface but implement their own behaviors.
+
+**Example: Animal Hierarchy**
+```python
+class Animal:
+    def speak(self):
+        return "Some generic sound"
+
+class Dog(Animal):  # Dog "is an" Animal
+    def speak(self):
+        return "Bark"
+
+class Cat(Animal):  # Cat "is an" Animal
+    def speak(self):
+        return "Meow"
+
+# Usage
+animals = [Dog(), Cat(), Animal()]
+for animal in animals:
+    print(animal.speak())
+```
+**Output:**
+```
+Bark
+Meow
+Some generic sound
+```
+Here, both `Dog` and `Cat` inherit from `Animal` but override the `speak()` method.
 
 ---
 
-## 11. Example Use Cases in Python
+### **12.2 Composition**
+Composition means creating complex types by combining objects of other classes. Instead of inheriting from another class, a class **contains** an instance of another class and delegates work to it. It represents a **“has-a” relationship**.
+
+✅ **When to Use:**
+- To promote flexibility and avoid rigid inheritance hierarchies.
+- When classes share functionality but don’t have a true “is-a” relationship.
+- To replace or swap components dynamically.
+
+**Example: Car and Engine**
+```python
+class Engine:
+    def start(self):
+        return "Engine started"
+
+class Car:
+    def __init__(self):
+        self.engine = Engine()  # Car "has an" Engine
+
+    def start(self):
+        return self.engine.start() + " in Car"
+
+# Usage
+my_car = Car()
+print(my_car.start())
+```
+**Output:**
+```
+Engine started in Car
+```
+Here, `Car` is not an `Engine`, but it **has one**.
+
+---
+
+### **12.3 Key Differences Between Inheritance and Composition**
+
+| Aspect                | Inheritance (IS-A)               | Composition (HAS-A)                  |
+|------------------------|-----------------------------------|--------------------------------------|
+| Relationship           | Child is a type of parent        | Class contains other classes         |
+| Coupling               | Tightly coupled                  | Loosely coupled                      |
+| Flexibility            | Less flexible (fixed hierarchy)  | More flexible (swap components)      |
+| Example                | Dog **is an** Animal             | Car **has an** Engine                |
+| Code Reuse             | Via base/parent class            | Via delegation                       |
+
+---
+
+### **12.4 When to Prefer Composition Over Inheritance**
+- When behavior is **shared but not specialized**.
+- When you want **looser coupling** between components.
+- When deep inheritance trees create complexity.
+- When using **dependency injection** for testing.
+
+---
+
+### **12.5 Real-World Examples**
+
+#### **Inheritance Example: GUI Widgets**
+```python
+class Widget:
+    def render(self):
+        return "Rendering Widget"
+
+class Button(Widget):  # Button "is a" Widget
+    def render(self):
+        return "Rendering Button"
+
+class TextBox(Widget):  # TextBox "is a" Widget
+    def render(self):
+        return "Rendering TextBox"
+
+# Usage
+widgets = [Button(), TextBox()]
+for w in widgets:
+    print(w.render())
+```
+**Output:**
+```
+Rendering Button
+Rendering TextBox
+```
+Here, `Button` and `TextBox` are specialized `Widget`s.
+
+#### **Composition Example: Game Development**
+```python
+class Position:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+class Velocity:
+    def __init__(self, dx, dy):
+        self.dx, self.dy = dx, dy
+
+class GameObject:
+    def __init__(self, position, velocity):
+        self.position = position  # HAS a Position
+        self.velocity = velocity  # HAS a Velocity
+
+    def move(self):
+        self.position.x += self.velocity.dx
+        self.position.y += self.velocity.dy
+        return (self.position.x, self.position.y)
+
+# Usage
+obj = GameObject(Position(0, 0), Velocity(5, 2))
+print(obj.move())  # (5, 2)
+```
+Here, `GameObject` is **not** a `Position` or `Velocity`, but it **uses them** to provide behavior.
+
+---
+
+### **12.6 Combining Inheritance and Composition**
+In practice, both can be combined.
+
+**Example: Web Application**
+```python
+class Database:
+    def query(self):
+        return "Fetching data from database"
+
+class Logger:
+    def log(self, msg):
+        print(f"LOG: {msg}")
+
+class Service:
+    def __init__(self, db, logger):
+        self.db = db        # Composition
+        self.logger = logger
+
+    def execute(self):
+        self.logger.log("Service executing")
+        return self.db.query()
+
+class UserService(Service):  # Inheritance
+    def execute(self):
+        self.logger.log("User service executing")
+        return "User Data: " + self.db.query()
+
+# Usage
+service = UserService(Database(), Logger())
+print(service.execute())
+```
+
+**Output:**
+```
+LOG: User service executing
+User Data: Fetching data from database
+```
+Here:
+- `UserService` inherits from `Service` (**inheritance**).
+- `Service` uses `Database` and `Logger` via **composition**.
+
+---
+
+✅ **Rule of Thumb:**
+- Use **inheritance** when classes share a strict “is-a” relationship.
+- Use **composition** for flexible and modular design.
+- Favor composition when unsure — it leads to looser coupling and easier maintainability.
+
+---
+## Section 13: Duck Typing and EAFP vs LBYL (Expanded)
+
+### **13.1 Duck Typing**
+Duck typing is a concept in Python where the type or class of an object is less important than the methods or behaviors it supports. The name comes from the saying:
+
+**“If it looks like a duck, swims like a duck, and quacks like a duck, then it probably is a duck.”**
+
+✅ **Key idea:** Instead of checking an object’s type, just use it as long as it behaves as expected.
+
+**Example: Duck Typing in Action**
+```python
+class Duck:
+    def quack(self):
+        return "Quack!"
+
+class Person:
+    def quack(self):
+        return "I'm imitating a duck!"
+
+def make_it_quack(duck_like):
+    print(duck_like.quack())
+
+# Usage
+make_it_quack(Duck())    # Quack!
+make_it_quack(Person())  # I'm imitating a duck!
+```
+Here, both `Duck` and `Person` have a `quack()` method. The function doesn’t care about the type — only that the object responds to `.quack()`.
+
+---
+
+### **13.2 EAFP (Easier to Ask for Forgiveness than Permission)**
+Python encourages the **EAFP** style:
+- Assume an object can do what you expect.
+- If it doesn’t, **catch the exception**.
+
+This is idiomatic in Python because exceptions are relatively cheap, and it avoids excessive condition checks.
+
+**Example: Dictionary Lookup (EAFP)**
+```python
+def get_item(dictionary, key):
+    try:
+        return dictionary[key]  # Assume key exists
+    except KeyError:
+        return "Key not found"
+
+data = {"name": "Alice"}
+print(get_item(data, "name"))  # Alice
+print(get_item(data, "age"))   # Key not found
+```
+Here, we try to use the dictionary directly and handle missing keys with `except`.
+
+---
+
+### **13.3 LBYL (Look Before You Leap)**
+The opposite of EAFP is **LBYL**:
+- Check conditions in advance before performing an operation.
+- Common in languages like Java and C.
+
+**Example: Dictionary Lookup (LBYL)**
+```python
+def get_item(dictionary, key):
+    if key in dictionary:   # Check first
+        return dictionary[key]
+    else:
+        return "Key not found"
+
+data = {"name": "Alice"}
+print(get_item(data, "name"))  # Alice
+print(get_item(data, "age"))   # Key not found
+```
+Here, we check whether the key exists before accessing it.
+
+---
+
+### **13.4 Comparison: EAFP vs LBYL**
+
+| Aspect                 | EAFP (Pythonic)                        | LBYL (Defensive style)         |
+|-------------------------|-----------------------------------------|--------------------------------|
+| Approach               | Try and catch exceptions                | Check conditions first         |
+| Language Influence     | Preferred in Python                     | Common in Java, C, C++         |
+| Readability            | Often shorter, cleaner                  | Can lead to nested conditions  |
+| Race Conditions        | Safer in multi-threaded scenarios       | May fail if state changes after check |
+| Example                | `try/except`                            | `if condition:`                |
+
+---
+
+### **13.5 Real-World Example: File Handling**
+
+**EAFP (Pythonic):**
+```python
+try:
+    with open("data.txt") as f:
+        print(f.read())
+except FileNotFoundError:
+    print("File not found, please create it first.")
+```
+
+**LBYL:**
+```python
+import os
+
+if os.path.exists("data.txt"):
+    with open("data.txt") as f:
+        print(f.read())
+else:
+    print("File not found, please create it first.")
+```
+
+- EAFP is shorter and more idiomatic.
+- LBYL avoids exceptions but may miss race conditions (file could be deleted between the `exists()` check and the `open()` call).
+
+---
+
+### **13.6 Another Example: Attribute Access**
+
+**EAFP:**
+```python
+def get_attribute(obj):
+    try:
+        return obj.name
+    except AttributeError:
+        return "No attribute 'name'"
+
+class User:
+    def __init__(self, name):
+        self.name = name
+
+print(get_attribute(User("Alice")))  # Alice
+print(get_attribute(object()))        # No attribute 'name'
+```
+
+**LBYL:**
+```python
+def get_attribute(obj):
+    if hasattr(obj, "name"):
+        return obj.name
+    else:
+        return "No attribute 'name'"
+
+print(get_attribute(User("Alice")))  # Alice
+print(get_attribute(object()))        # No attribute 'name'
+```
+
+---
+
+### **13.7 When to Use Which**
+- ✅ Use **EAFP** in most Python code for clean, readable style.
+- ✅ Use **LBYL** when checks are cheap and exceptions are expensive (e.g., network calls).
+- ✅ For **concurrency/multithreading**, EAFP is safer because conditions can change after a check.
+
+---
+
+✅ **Rule of Thumb:**
+- Prefer **Duck Typing + EAFP** in idiomatic Python.
+- Use LBYL when performance or clarity demands pre-checks.
+
+---
+
+
+## 14. Example Use Cases in Python
 ### Use Case A — Employee Management (instance/class/staticmethods)
 ```python
 class Employee:
@@ -499,7 +888,7 @@ class MyPlugin(PluginBase):
 
 ---
 
-## 12. Best Practices
+## 15. Best Practices
 - Prefer composition over inheritance for flexible designs.
 - Use `@staticmethod` for utilities that don't need `cls`/`self` and `@classmethod` for alternative constructors or class-level behavior.
 - Use `@property` for controlled attribute access; avoid public mutable attributes when invariants must be enforced.
@@ -509,7 +898,7 @@ class MyPlugin(PluginBase):
 
 ---
 
-## 13. Glossary
+## 16. Glossary
 - **Bound method:** Function object that has `self` pre-bound to an instance.
 - **Descriptor:** Object with `__get__`, `__set__`, or `__delete__` used for attribute access control.
 - **Abstract method:** Method declared but not implemented at the abstract base class level.
@@ -517,7 +906,7 @@ class MyPlugin(PluginBase):
 
 ---
 
-## 14. Further Reading
+## 17. Further Reading
 - Official Python docs: https://docs.python.org/3/tutorial/classes.html and https://docs.python.org/3/library/abc.html
 - Book: *Fluent Python* by Luciano Ramalho (excellent coverage of descriptors, metaclasses, and advanced OOP)
 - PEP 8: Style guide for Python code
