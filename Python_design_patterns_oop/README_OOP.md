@@ -157,9 +157,47 @@ class Circle(Shape):
     def area(self):
         return 3.14159 * self.r * self.r
 ```
-
 Trying to instantiate `Shape()` or a subclass that does not implement `area` will raise `TypeError`.
 
+```python
+from abc import ABC, abstractmethod
+
+# Abstract Class for Abstraction
+class Animal(ABC):
+    @abstractmethod
+    def make_sound(self):
+        pass
+
+    def sleep(self):
+        print("Zzz...")
+
+# ABC acting as an Interface
+class Flyable(ABC):
+    @abstractmethod
+    def fly(self):
+        pass
+
+class Dog(Animal):
+    def make_sound(self):
+        print("Woof!")
+
+class Bird(Animal, Flyable): # Inheriting from both
+    def make_sound(self):
+        print("Chirp!")
+
+    def fly(self):
+        print("Flying high!")
+
+# d = Animal() # This would raise a TypeError as Animal is abstract
+dog = Dog()
+dog.make_sound()
+dog.sleep()
+
+bird = Bird()
+bird.make_sound()
+bird.sleep()
+bird.fly()
+```
 
 ### 5.5 Special methods (dunder)
 - Special methods (like `__str__`, `__repr__`, `__len__`, `__eq__`) customize built-in behavior.
@@ -342,6 +380,56 @@ class Employee:
 
     def __init__(self, salary):
         self.salary = salary
+
+```
+### 5.6 methoad overriding and methoad overloading
+✅ Key Points of overriding:
+- Involves inheritance.
+- Subclass method replaces the parent method.
+- Enables runtime polymorphism.
+```python
+class Animal:
+    def speak(self):
+        return "Some generic sound"
+
+class Dog(Animal):
+    def speak(self):  # Overriding parent method
+        return "Bark"
+
+class Cat(Animal):
+    def speak(self):
+        return "Meow"
+
+# Usage
+animals = [Dog(), Cat()]
+for animal in animals:
+    print(animal.speak())
+#output
+#"Bark"
+#"Meow
+```
+✅ Key Points of overloading:
+- Python uses the last defined method if multiple methods have the same name.
+- Overloading is simulated using optional or variable arguments.
+```python
+class Calculator:
+    def add(self, a, b=0, c=0):
+        return a + b + c
+
+calc = Calculator()
+print(calc.add(5))       # 5
+print(calc.add(5, 10))   # 15
+print(calc.add(5, 10, 15)) # 30
+```
+```python
+class Calculator:
+    def add(self, *args):
+        return sum(args)
+
+calc = Calculator()
+print(calc.add(5))            # 5
+print(calc.add(5, 10))        # 15
+print(calc.add(5, 10, 15, 20)) # 50
 
 ```
 ---
