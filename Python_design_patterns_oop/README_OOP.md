@@ -335,7 +335,59 @@ class Config:
 c = Config()
 print(c.version)     # works
 # c.version = "2.0"  # ❌ AttributeError
+```
+```python
+class DimensionsDescriptor:
+    def __init__(self, name_width, name_height):
+        self.name_width = name_width
+        self.name_height = name_height
 
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return getattr(obj, self.name_width), getattr(obj, self.name_height)
+
+    def __set__(self, obj, value):
+        # Unpack the multiple values from the 'value' iterable
+        width, height = value
+
+        # Perform any validation or logic here
+        if not isinstance(width, (int, float)) or not isinstance(height, (int, float)):
+            raise ValueError("Dimensions must be numeric.")
+        if width <= 0 or height <= 0:
+            raise ValueError("Dimensions must be positive.")
+
+        # Set the individual attributes on the instance
+        setattr(obj, self.name_width, width)
+        setattr(obj, self.name_height, height)
+
+class Rectangle:
+    # Create an instance of the descriptor
+    dimensions = DimensionsDescriptor('_width', '_height')
+
+    def __init__(self, width, height):
+        # When assigning to 'dimensions', the descriptor's __set__ is called
+        self.dimensions = (width, height)
+
+    def get_area(self):
+        # Accessing 'dimensions' calls the descriptor's __get__
+        width, height = self.dimensions
+        return width * height
+
+# Example usage
+rect = Rectangle(10, 5)
+print(f"Initial dimensions: {rect.dimensions}")
+print(f"Area: {rect.get_area()}")
+
+# Set new dimensions using a tuple
+rect.dimensions = (20, 10)
+print(f"New dimensions: {rect.dimensions}")
+print(f"New area: {rect.get_area()}")
+
+try:
+    rect.dimensions = (-5, 10) # This will raise a ValueError
+except ValueError as e:
+    print(f"Error setting dimensions: {e}")
 ```
 **Descriptor vs @property**
 Both achieve similar goals.
