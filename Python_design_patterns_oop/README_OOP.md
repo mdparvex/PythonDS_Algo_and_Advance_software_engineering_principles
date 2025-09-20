@@ -482,39 +482,192 @@ print(unbound(a, 1))
 - `__enter__`, `__exit__` — context manager protocol.
 
 **Example:**
+**8.1. String Representations:**
 ```python
-class RangeLike:
-    def __init__(self, n):
-        self.n = n
+class Book:
+    def __init__(self, title, author):
+        self.title, self.author = title, author
 
-    def __len__(self):
-        return self.n
+    def __repr__(self):  # Developer-friendly
+        return f"Book(title={self.title!r}, author={self.author!r})"
 
-    def __iter__(self):
-        i = 0
-        while i < self.n:
-            yield i
-            i += 1
+    def __str__(self):  # User-friendly
+        return f"{self.title} by {self.author}"
 
-r = RangeLike(3)
-print(len(r))
-for x in r:
-    print(x)
+b = Book("1984", "Orwell")
+print(repr(b))  # Book(title='1984', author='Orwell')
+print(str(b))   # 1984 by Orwell
+
 ```
-
-**Context manager example:**
+**8.2. Comparisn Operators:**
 ```python
-class Managed:
+class Number:
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other): return self.value == other.value
+    def __lt__(self, other): return self.value < other.value
+    def __le__(self, other): return self.value <= other.value
+    def __gt__(self, other): return self.value > other.value
+    def __ge__(self, other): return self.value >= other.value
+    def __ne__(self, other): return self.value != other.value
+
+print(Number(5) == Number(5))  # True
+print(Number(3) < Number(7))   # True
+
+```
+**8.3. Arithmatic operators**
+```python
+class Vector:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+    def __add__(self, other): return Vector(self.x + other.x, self.y + other.y)
+    def __sub__(self, other): return Vector(self.x - other.x, self.y - other.y)
+    def __mul__(self, scalar): return Vector(self.x * scalar, self.y * scalar)
+    def __truediv__(self, scalar): return Vector(self.x / scalar, self.y / scalar)
+
+    def __repr__(self): return f"Vector({self.x}, {self.y})"
+
+print(Vector(2, 3) + Vector(1, 1))  # Vector(3, 4)
+print(Vector(2, 3) * 2)             # Vector(4, 6)
+```
+**8.4. Container and Iteretor Protocols**
+```python
+class MyList:
+    def __init__(self, items):
+        self.items = items
+
+    def __len__(self): return len(self.items)
+    def __getitem__(self, index): return self.items[index]
+    def __setitem__(self, index, value): self.items[index] = value
+    def __delitem__(self, index): del self.items[index]
+    def __iter__(self): return iter(self.items)
+    def __contains__(self, item): return item in self.items
+
+lst = MyList([1, 2, 3])
+print(len(lst))       # 3
+print(lst[1])         # 2
+lst[1] = 99
+print(lst.items)      # [1, 99, 3]
+print(99 in lst)      # True
+
+```
+**8.5. Iterator Protocols**
+```python
+class Counter:
+    def __init__(self, limit):
+        self.limit = limit
+        self.current = 0
+
+    def __iter__(self): return self
+    def __next__(self):
+        if self.current < self.limit:
+            self.current += 1
+            return self.current
+        raise StopIteration
+
+for num in Counter(3):
+    print(num)  # 1, 2, 3
+
+```
+**8.6. Context manager example:**
+```python
+class FileManager:
+    def __init__(self, filename, mode):
+        self.filename, self.mode = filename, mode
+
     def __enter__(self):
-        print('enter')
-        return self
-    def __exit__(self, exc_type, exc, tb):
-        print('exit')
+        self.file = open(self.filename, self.mode)
+        return self.file
 
-with Managed():
-    print('inside')
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.file.close()
+        return False  # re-raise exceptions if any
+
+with FileManager("test.txt", "w") as f:
+    f.write("Hello World")
 ```
+**8.7. Callable Objects:**
+```python
+class Adder:
+    def __init__(self, n): self.n = n
+    def __call__(self, x): return x + self.n
 
+add5 = Adder(5)
+print(add5(10))  # 15
+
+```
+**8.8. Attribute Access:**
+```python
+class Person:
+    def __init__(self, name): self.name = name
+
+    def __getattr__(self, item):  # only if attribute not found
+        return f"{item} not found"
+
+    def __setattr__(self, key, value): 
+        print(f"Setting {key} = {value}")
+        super().__setattr__(key, value)
+
+    def __delattr__(self, item): 
+        print(f"Deleting {item}")
+        super().__delattr__(item)
+
+p = Person("Alice")
+print(p.age)   # age not found
+p.city = "NY"  # Setting city = NY
+del p.city     # Deleting city
+```
+**8.9. Objects Lifecycle:**
+```python
+class Demo:
+    def __new__(cls, *args, **kwargs):
+        print("Allocating memory for object")
+        return super().__new__(cls)
+
+    def __init__(self, value):
+        print("Initializing object")
+        self.value = value
+
+    def __del__(self):
+        print(f"Destroying {self.value}")
+
+obj = Demo(10)
+del obj
+```
+**8.10. Hasjing and Turthiness:**
+```python
+class Point:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+    def __hash__(self): return hash((self.x, self.y))
+    def __bool__(self): return bool(self.x or self.y)
+
+p = Point(0, 0)
+print(bool(p))       # False
+print(hash(Point(1, 2)))
+```
+**8.11. Descriptor Protocol:**
+```python
+class Celsius:
+    def __get__(self, obj, objtype=None):
+        return obj._celsius
+    def __set__(self, obj, value):
+        if value < -273.15:
+            raise ValueError("Below absolute zero!")
+        obj._celsius = value
+
+class Temperature:
+    celsius = Celsius()
+    def __init__(self, celsius): self.celsius = celsius
+
+t = Temperature(25)
+print(t.celsius)  # 25
+t.celsius = -300  # ValueError
+
+```
 ---
 
 ## 9. Access Modifiers and Name Mangling
