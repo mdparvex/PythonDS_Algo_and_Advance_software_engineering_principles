@@ -29,96 +29,120 @@ A class should have **only one reason to change**, meaning it should have **only
 
 ```python
 class Report:
-    def __init__(self, text):
-        self.text = text
+    def __init__(self, content):
+        self.content = content
 
-    def save_to_file(self, filename):
-        with open(filename, 'w') as f:
-            f.write(self.text)
+    def generate_report(self):
+        return f"Report Content: {self.content}"
+
+    def save_to_file(self, filename):  # ❌ File handling responsibility added
+        with open(filename, "w") as f:
+            f.write(self.content)
+
 ```
 
-> ✅ Problem: The class is handling **both data** and **file operations**.
+> ✅ Problem: Here, the Report class handles two responsibilities:
+- Generating reports
+- Saving to a file
 
 ### ✅ Good Example (SRP Applied):
 
 ```python
 class Report:
-    def __init__(self, text):
-        self.text = text
+    def __init__(self, content):
+        self.content = content
 
-class ReportSaver:
+    def generate_report(self):
+        return f"Report Content: {self.content}"
+
+class FileSaver:
     def save_to_file(self, report, filename):
-        with open(filename, 'w') as f:
-            f.write(report.text)
-```
+        with open(filename, "w") as f:
+            f.write(report.generate_report())
 
-> 🎯 Now, each class has **only one responsibility**.
+```
+> 🎯 Now, each class has **only one responsibility**.   
+
+💡 **Use Case**
+- **SRP in Django**: A model should only represent data. Business logic should go into services, and rendering logic should go into views/templates.
 
 ---
 
 ## 2️⃣ Open/Closed Principle (OCP)
 
 ### 📖 Definition:
-Software entities should be **open for extension**, but **closed for modification**.
+Software entities should be **open for extension**, but **closed for modification**.   
+You should be able to add new functionality without changing existing code.
 
 ### ❌ Bad Example:
 
 ```python
-class Discount:
-    def calculate(self, price, customer_type):
-        if customer_type == 'regular':
-            return price * 0.9
-        elif customer_type == 'vip':
-            return price * 0.8
+class PaymentProcessor:
+    def pay(self, method, amount):
+        if method == "credit_card":
+            print(f"Paying {amount} using Credit Card")
+        elif method == "paypal":
+            print(f"Paying {amount} using PayPal")
 ```
 
-> 🚨 You need to **edit** this class each time you add a new customer type.
+> 🚨 If we add another payment method (e.g., **Stripe**), we must modify the class, which breaks OCP.
 
 ### ✅ Good Example (OCP Applied):
 
 ```python
-class DiscountStrategy:
-    def apply_discount(self, price):
-        return price
+from abc import ABC, abstractmethod
 
-class RegularDiscount(DiscountStrategy):
-    def apply_discount(self, price):
-        return price * 0.9
+class PaymentMethod(ABC):
+    @abstractmethod
+    def pay(self, amount): pass
 
-class VIPDiscount(DiscountStrategy):
-    def apply_discount(self, price):
-        return price * 0.8
+class CreditCardPayment(PaymentMethod):
+    def pay(self, amount): print(f"Paying {amount} using Credit Card")
 
-# Usage
-def checkout(price, strategy: DiscountStrategy):
-    return strategy.apply_discount(price)
+class PayPalPayment(PaymentMethod):
+    def pay(self, amount): print(f"Paying {amount} using PayPal")
 
-price = 100
-print(checkout(price, VIPDiscount()))  # 80.0
+class PaymentProcessor:
+    def __init__(self, payment_method: PaymentMethod):
+        self.payment_method = payment_method
+
+    def process(self, amount):
+        self.payment_method.pay(amount)
+
+processor = PaymentProcessor(CreditCardPayment())
+processor.process(100)
+
 ```
 
-> 🎯 Now you can **extend** discount types without **modifying existing code**.
+> 🎯 Now you can **extend** payment methods without **modifying existing code**.   
+
+
+💡 **Use Case**
+- Payment gateways, logging systems, and notification services where new providers can be added without modifying existing logic.
 
 ---
 
 ## 3️⃣ Liskov Substitution Principle (LSP)
 
 ### 📖 Definition:
-**Subtypes** must be **substitutable** for their **base types** without altering program correctness.
+**Subtypes** must be **substitutable** for their **base types** without altering program correctness.   
+Objects of a superclass should be **replaceable with objects of a subclass** without breaking the application.
 
 ### ❌ Bad Example:
 
 ```python
 class Bird:
     def fly(self):
-        pass
+        print("Flying")
 
-class Ostrich(Bird):
+class Penguin(Bird):  # ❌ Penguins can’t fly
     def fly(self):
-        raise NotImplementedError("Ostriches can't fly!")
+        raise Exception("Penguins can't fly")
 ```
 
-> 🚨 Violates LSP – a subclass shouldn't **break behavior** of the base class.
+> 🚨 Violates LSP – a subclass shouldn't **break behavior** of the base class.  
+
+This violates LSP because ```Penguin``` is not a proper substitute for ```Bird```.
 
 ### ✅ Good Example (LSP Applied):
 
@@ -127,29 +151,35 @@ class Bird:
     pass
 
 class FlyingBird(Bird):
-    def fly(self):
-        print("Flying...")
+    def fly(self): print("Flying")
 
-class Ostrich(Bird):
-    def run(self):
-        print("Running...")
+class Penguin(Bird):
+    def swim(self): print("Swimming")
 
-# Usage
-def move_bird(bird: Bird):
-    if isinstance(bird, FlyingBird):
-        bird.fly()
-    elif isinstance(bird, Ostrich):
-        bird.run()
+def let_it_fly(bird: FlyingBird):
+    bird.fly()
+
+eagle = FlyingBird()
+penguin = Penguin()
+
+let_it_fly(eagle)   # Works
+# let_it_fly(penguin)  # ❌ Avoided
+
 ```
 
-> 🎯 Subclasses maintain expected behavior of the base class.
+> 🎯 Subclasses maintain expected behavior of the base class.   
+
+💡 **Use Case**
+- Inheritance hierarchies where subclasses should not break the expectations of base classes.
+- Example: In a banking system, a ``SavingsAccount`` and `CheckingAccount` should behave consistently when substituted for an `Account`.
 
 ---
 
 ## 4️⃣ Interface Segregation Principle (ISP)
 
 ### 📖 Definition:
-Clients should **not be forced** to depend on interfaces they do not use.
+Clients should **not be forced** to depend on interfaces they do not use.   
+Prefer multiple small, specific interfaces over a large, general one.
 
 ### ❌ Bad Example:
 
@@ -189,6 +219,8 @@ class MultiFunctionMachine(Printer, Scanner):
 ```
 
 > 🎯 Clients **only implement** what they need.
+💡 **Use Case**   
+- **API design**: Instead of creating one large `IUserService`, split into `IUserAuthentication`, `IUserProfile`, `IUserNotification`.
 
 ---
 
@@ -201,15 +233,18 @@ class MultiFunctionMachine(Printer, Scanner):
 
 ```python
 class MySQLDatabase:
-    def connect(self):
-        print("Connecting to MySQL")
+    def connect(self): print("Connected to MySQL")
 
-class Application:
+class DataAccess:
     def __init__(self):
-        self.db = MySQLDatabase()  # Tight coupling
+        self.db = MySQLDatabase()  # ❌ Direct dependency
+
+    def fetch(self):
+        self.db.connect()
+
 ```
 
-> 🚨 Application is tightly coupled to **MySQLDatabase**.
+> 🚨 Here, switching from MySQL to PostgreSQL requires modifying `DataAccess`.
 
 ### ✅ Good Example (DIP Applied):
 
@@ -218,30 +253,29 @@ from abc import ABC, abstractmethod
 
 class Database(ABC):
     @abstractmethod
-    def connect(self):
-        pass
+    def connect(self): pass
 
 class MySQLDatabase(Database):
-    def connect(self):
-        print("Connecting to MySQL")
+    def connect(self): print("Connected to MySQL")
 
 class PostgreSQLDatabase(Database):
-    def connect(self):
-        print("Connecting to PostgreSQL")
+    def connect(self): print("Connected to PostgreSQL")
 
-class Application:
+class DataAccess:
     def __init__(self, db: Database):
         self.db = db
 
-    def start(self):
+    def fetch(self):
         self.db.connect()
 
-# Usage
-app = Application(PostgreSQLDatabase())
-app.start()  # Connecting to PostgreSQL
+da = DataAccess(PostgreSQLDatabase())
+da.fetch()
+
 ```
 
 > 🎯 High-level module (`Application`) is now **decoupled** from low-level modules.
+💡 **Use Case**   
+- In Django/Flask, use repository patterns with abstract interfaces so switching from MySQL to PostgreSQL or MongoDB doesn’t break the high-level business logic.
 
 ---
 
