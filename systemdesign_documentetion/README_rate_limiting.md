@@ -722,3 +722,114 @@ Most **real-world systems** use **both**:
 - But for **production best practice** → combine:
   - **Nginx (gateway-level)**: protect the app from floods per IP.
   - **Django (app-level)**: enforce per-user/per-plan quotas.
+
+
+Django (with DRF) already has decorators/middleware for rate limiting, and API gateways (like Nginx, Kong, Traefik, or AWS API Gateway) can enforce limits with **much less custom code**. So why would I suggest a custom Redis-based token bucket?
+
+Let's compare the three approaches and I'll suggest when to pick which one.
+
+**🔹 1. DRF Decorator-based Rate Limiting**
+
+(Django Rest Framework throttling)
+
+**How it works**
+
+- DRF provides Throttle classes (UserRateThrottle, AnonRateThrottle, etc.)
+- You configure limits in settings.py:
+```python
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '100/minute',
+        'anon': '20/minute',
+    }
+}
+
+```
+- You can also apply per-view throttles with decorators.
+
+✅ **Pros**
+
+- Easy to implement, just config + class override.
+- Integrated with Django authentication.
+- Good for small/medium APIs.
+
+❌ **Cons**
+
+- Stores request history in cache/DB → not as scalable for high traffic.
+- Limited algorithm flexibility (no burst-friendly token bucket, just fixed window or sliding window).
+- Only works inside Django, so if Django is bypassed, no protection.
+
+**🔹 2. Gateway-level Rate Limiting**
+
+(Reverse proxy like Nginx, Traefik, Kong, AWS API Gateway)
+
+**How it works**
+
+- The gateway sits **in front of Django**.
+- Example with **Nginx**:
+```nginx
+limit_req_zone $binary_remote_addr zone=one:10m rate=5r/s;
+
+server {
+    location /api/ {
+        limit_req zone=one burst=10 nodelay;
+        proxy_pass http://127.0.0.1:8000;
+    }
+}
+
+```
+- This limits **requests per IP** before they even hit Django.
+
+✅ **Pros**
+
+- Very fast, runs at network layer.
+- Protects Django app from overload before it sees traffic.
+- Burst support (burst parameter).
+- No Python code needed.
+
+❌ **Cons**
+
+- Typically only per-IP (harder to do per-user unless JWT or API key is inspected).
+- Limited flexibility unless using advanced gateways like Kong/Traefik.
+- If you need per-user or per-endpoint limits, it gets tricky.
+
+**🔹 3. Custom Redis Token Bucket (my implementation above)**
+
+**How it works**
+
+- Middleware in Django.
+- Uses Redis with Lua scripts to implement precise **token bucket algorithm**.
+- Tracks per-user, per-endpoint, or per-IP.
+
+✅ **Pros**
+
+- Very flexible (per-user, per-plan, per-endpoint).
+- Burst-friendly and precise.
+- Works in distributed environments (multiple Django servers).
+
+❌ **Cons**
+
+- More code to maintain.
+- Redis dependency.
+- Reinventing the wheel if DRF/gateway already fits your case.
+
+**🔹 So which one is perfect?**
+
+It depends on your system:
+
+- **Small/medium API, internal use, or MVP** →  
+    ✅ **Use DRF throttling** (simplest, less code, built-in).
+- **Public-facing API, large-scale traffic, need to protect Django itself** →  
+    ✅ **Use gateway-level rate limiting** (Nginx/Kong). Django never sees abusive traffic.
+- **Complex needs (per-user subscription plans, per-endpoint rules, analytics, burst control)** →  
+    ✅ **Custom Redis-based token bucket** (like the one I wrote).
+
+👉 My suggestion:
+
+- Start with **DRF throttling** (low effort).
+- If traffic grows or you need stronger protection → add **gateway-level rate limiting**.
+- Only build a **custom Redis limiter** if you need **fine-grained, per-user/per-plan control** that DRF/gateway can't handle.
