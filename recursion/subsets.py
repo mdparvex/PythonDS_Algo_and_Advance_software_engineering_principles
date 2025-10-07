@@ -14,3 +14,11 @@ def subsets(nums):
     return subset_without_first + subset_with_first
 
 print(subsets([2,3,6,7]))
+
+def subsets_iterative(nums):
+    result = [[]]
+
+    for num in nums:
+        result += [curr + [num] for curr in result]
+    return result
+print(subsets_iterative([2,3,6,7]))
