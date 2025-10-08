@@ -64,6 +64,22 @@ class AnimalFactory:
 factory = AnimalFactory()
 animal = factory.create_animal("dog")
 print(animal.speak()) # Woof!
+
+class Burger:
+    def __init__(self, ingredients):
+        self.ingradients = ingrediants
+    def print(self):
+        print(self.ingrediants)
+class BurgerFactory:
+    def createCheaseBurger(self):
+        ingradients = ["bun", "cheese", "beef-patty"]
+        return Burger(ingredients)
+    def createDelucCheaseBurger(self):
+        ingradients = ["bun", "tomato","lettuce", "cheese", "beef-patty"]
+        return Burger(ingredients)
+burgerfactory = BurgerFactory()
+burgerfactory.createCheaseBurger().print()
+burgerfactory.createDelucCheaseBurger().print()
 ```
 
 ✅ **Why use it?**
