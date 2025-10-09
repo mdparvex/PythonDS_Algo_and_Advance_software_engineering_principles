@@ -11,9 +11,9 @@ Understanding recursion complexity requires identifying:
 
 The general recurrence relation for a recursive algorithm is:
 
-\[
-T(n) = a \cdot T\left(\frac{n}{b}\right) + f(n)
-\]
+$$
+T(n)=a⋅T(n/b​)+f(n)
+$$
 
 Where:
 - **a** → number of subproblems per recursion  
