@@ -111,14 +111,4 @@ Coding guidelines:
 
 This repository is a personal collection of learning materials. If you include or adapt solutions from online judges (LeetCode, HackerRank, etc.), please keep attribution comments in the file header.
 
-If you want this repository to be licensed for reuse, add a `LICENSE` file (e.g., MIT) describing the terms.
-
 ---
-
-If you'd like, I can also:
-
-- Add a small CONTRIBUTING.md with a template and PR checklist.
-- Add a minimal pytest configuration and a couple of unit tests as examples.
-- Generate a high-level index file that programmatically lists all problem files and their first-line docstrings.
-
-Tell me which of these you'd like next and I will implement it.
