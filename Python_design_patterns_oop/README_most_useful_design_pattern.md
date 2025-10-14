@@ -2,6 +2,25 @@ Design patterns are proven solutions to common software design problems. They're
 
 Here are the most **usable and common design patterns**, grouped into **Creational**, **Structural**, and **Behavioral** categories — with explanation, **real-world use case**, and **Python code examples** for each.
 
+---
+**Creational patterns**
+
+- These patterns provide flexible ways to create objects, often by decoupling the creation logic from the client code.
+- Examples include the Singleton pattern, which ensures only one instance of a class exists, and the Factory Method pattern.
+
+**Structural patterns**
+
+- These patterns focus on how to assemble classes and objects to form larger structures and provide new functionalities.
+- They are concerned with class and object composition, using inheritance to compose interfaces and define ways to compose objects.
+
+**Behavioral patterns**
+
+- These patterns are about algorithms and the assignment of responsibilities between objects to create efficient communication.
+- They handle how objects interact with each other, helping to make programs more flexible and maintainable.
+- Examples include the State pattern, which allows an object to alter its behavior when its internal state changes, and the Proxy pattern.
+
+---
+
 **🏗️ 1. Creational Patterns**
 
 **🔹 a) Singleton Pattern**

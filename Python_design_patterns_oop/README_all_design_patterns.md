@@ -4,6 +4,25 @@ Great! There are **23 classic design patterns** (known as the GoF or “Gang of 
 ✅ **Python code examples**  
 ✅ **Real-world use cases**
 
+---
+**Creational patterns**
+
+- These patterns provide flexible ways to create objects, often by decoupling the creation logic from the client code.
+- Examples include the Singleton pattern, which ensures only one instance of a class exists, and the Factory Method pattern.
+
+**Structural patterns**
+
+- These patterns focus on how to assemble classes and objects to form larger structures and provide new functionalities.
+- They are concerned with class and object composition, using inheritance to compose interfaces and define ways to compose objects.
+
+**Behavioral patterns**
+
+- These patterns are about algorithms and the assignment of responsibilities between objects to create efficient communication.
+- They handle how objects interact with each other, helping to make programs more flexible and maintainable.
+- Examples include the State pattern, which allows an object to alter its behavior when its internal state changes, and the Proxy pattern.
+
+---
+
 I'll now begin generating them **category by category** with the following structure for **each pattern**:
 
 - **🔹 Pattern Name**
