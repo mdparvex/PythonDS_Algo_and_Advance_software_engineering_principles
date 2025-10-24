@@ -1033,7 +1033,22 @@ GET /api/search/?q=machine learning
   {"title": "Machine Learning Basics", "author": "Andrew Ng", "score": 3.5},
   {"title": "Deep Learning with Python", "author": "François Chollet", "score": 2.9}
 ]
-```
+```   
+
+
+## ****Choosing Shard and Replica Numbers****
+
+| **Dataset Size** | **Recommended Shards** | **Recommended Replicas** |
+| --- | --- | --- |
+| < 5 GB | 1 shard | 1 replica |
+| 5-50 GB | 3 shards | 1 replica |
+| 50-500 GB | 5 shards | 1-2 replicas |
+| \> 500 GB | 10+ shards | 1-2 replicas |
+
+💡 **Rule of thumb**:
+
+- Each shard should ideally be **under 50 GB**.
+- If you expect future growth, start with **more smaller shards**.
 
 ## ****18️⃣ Common Issues****
 
