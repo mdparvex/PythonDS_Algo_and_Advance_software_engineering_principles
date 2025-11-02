@@ -30,13 +30,13 @@ Content negotiation is part of the **HTTP specification (RFC 7231)**. It allows 
 
 - **Content-Type** → What type of data is being sent in the request body (important for POST/PUT).  
     Example:
-    ```pgsql Content-Type: application/json ```
+    `Content-Type: application/json`
 - **Accept-Language** → Preferred human language for the response.  
     Example:
-    ```bash Accept-Language: en-US,en;q=0.9, fr;q=0.8 ```
+    `Accept-Language: en-US,en;q=0.9, fr;q=0.8`
 - **Accept-Encoding** → What compression formats the client supports.  
     Example:
- ```bash Accept-Encoding: gzip, deflate, br ```
+ `Accept-Encoding: gzip, deflate, br `
 
 ## 4\. Examples of Content Negotiation
 
