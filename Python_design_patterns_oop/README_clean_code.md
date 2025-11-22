@@ -3,7 +3,7 @@
 **Clean, Reusable & Well-Structured Code Principles (Python Edition)**
 
 **Version:** 1.0  
-**Author:** Md. Abdulla Al Mamun 
+**Author:** Md. Abdulla Al Mamun   
 **Audience:** Software engineers, backend/API developers  
 **Purpose:** Provide a concrete actionable guide to writing clean, reusable, and scalable Python code.
 
