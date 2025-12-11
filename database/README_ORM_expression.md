@@ -465,3 +465,388 @@ def get_top_customers():
 - **Master Subquery + OuterRef + Exists** (very powerful in real-world apps).
 - **Dive into Window Functions & CTEs** for analytics.
 - **Learn query profiling** (.explain(), django-silk).
+
+# 📘 Technical Documentation: Django `models.Manager`
+
+## Table of Contents
+1. Introduction  
+2. What is a Manager?  
+3. Default Manager Behavior  
+4. Custom Managers  
+5. Customizing `get_queryset()`  
+6. Custom QuerySet + Manager (Best Practice)  
+7. Attaching Multiple Managers  
+8. Advanced Patterns  
+   - Soft Delete Pattern  
+   - Active/Inactive Filtering  
+   - Manager for Aggregations  
+   - Manager for Search  
+   - Manager for Multi-Tenancy  
+9. Manager Behavior in Admin, Related Fields, and Migrations  
+10. Common Mistakes and Pitfalls  
+11. Best Practices  
+12. Full Working Example (Model + Manager + QuerySet + Admin + Unit Tests)
+
+---
+
+# 1. Introduction
+
+In Django ORM, a **Manager** controls database operations for a model. It is the **gateway to every database query**, responsible for:
+- Constructing QuerySets
+- Defining default filtering behavior
+- Exposing helper methods
+- Abstracting business logic
+- Managing object creation and retrieval
+
+Every Django model gets a default manager named **`objects`**.
+
+---
+
+# 2. What is a Manager?
+
+A Manager is an instance of `django.db.models.Manager`. It provides access to:
+
+```python
+Product.objects.all()
+Product.objects.filter(...)
+Product.objects.create(...)
+```
+
+Internally, the Manager uses:
+- `get_queryset()` → returns a QuerySet
+- QuerySet methods (`filter`, `exclude`, `order_by`, etc.)
+
+---
+
+# 3. Default Manager Behavior
+
+```python
+class Product(models.Model):
+    name = models.CharField(max_length=100)
+```
+
+Django automatically adds:
+
+```python
+Product.objects
+```
+
+This Manager returns **all rows** from the `product` table.
+
+---
+
+# 4. Custom Managers
+
+Create a custom manager by subclassing `models.Manager`:
+
+```python
+class ProductManager(models.Manager):
+    def active(self):
+        return self.filter(is_active=True)
+```
+
+Attach it to the model:
+
+```python
+class Product(models.Model):
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    objects = ProductManager()
+```
+
+Usage:
+
+```python
+Product.objects.active()
+```
+
+---
+
+# 5. Customizing `get_queryset()` (Default Filtering)
+
+```python
+class ActiveManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+```
+
+Attach it:
+
+```python
+class Product(models.Model):
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    objects = ActiveManager()
+```
+
+Now, `Product.objects.all()` returns only **active** products.
+
+---
+
+# 6. Custom QuerySet + Manager (Best Practice)
+
+### Step 1 — Custom QuerySet
+```python
+class ProductQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_active=True)
+
+    def expensive(self):
+        return self.filter(price__gte=500)
+```
+
+### Step 2 — Manager that uses the QuerySet
+```python
+class ProductManager(models.Manager):
+    def get_queryset(self):
+        return ProductQuerySet(self.model, using=self._db)
+
+    def active(self):
+        return self.get_queryset().active()
+
+    def expensive(self):
+        return self.get_queryset().expensive()
+```
+
+### Step 3 — Attach to model
+```python
+class Product(models.Model):
+    name = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    is_active = models.BooleanField(default=True)
+
+    objects = ProductManager()
+```
+
+### Usage
+```python
+Product.objects.active().expensive()
+```
+
+---
+
+# 7. Attaching Multiple Managers
+
+```python
+class Product(models.Model):
+    ...
+    objects = ActiveManager()
+    all_objects = models.Manager()
+```
+
+Usage:
+```python
+Product.objects.all()        # filtered
+Product.all_objects.all()    # unfiltered
+```
+
+---
+
+# 8. Advanced Patterns
+
+## 8.1 Soft Delete Pattern
+
+Manager:
+```python
+class SoftDeleteManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+```
+
+Model:
+```python
+class User(models.Model):
+    name = models.CharField(max_length=100)
+    is_deleted = models.BooleanField(default=False)
+
+    objects = SoftDeleteManager()
+    all_objects = models.Manager()
+```
+
+Override delete:
+```python
+def delete(self, using=None, keep_parents=False):
+    self.is_deleted = True
+    self.save()
+```
+
+---
+
+## 8.2 Manager for Aggregations
+```python
+class OrderManager(models.Manager):
+    def total_revenue(self):
+        return self.aggregate(total=Sum("amount"))['total'] or 0
+```
+
+Usage:
+```python
+Order.objects.total_revenue()
+```
+
+---
+
+## 8.3 Search Manager
+```python
+class ProductManager(models.Manager):
+    def search(self, query):
+        return self.filter(name__icontains=query)
+```
+
+---
+
+## 8.4 Multi-Tenancy
+
+QuerySet:
+```python
+class TenantQuerySet(models.QuerySet):
+    def for_tenant(self, tenant_id):
+        return self.filter(tenant_id=tenant_id)
+```
+
+Manager:
+```python
+class TenantManager(models.Manager):
+    def get_queryset(self):
+        tenant_id = get_current_request_tenant()
+        return super().get_queryset().filter(tenant_id=tenant_id)
+```
+
+---
+
+# 9. Manager Behavior in Admin, Related Fields, and Migrations
+
+## Admin uses default manager
+If the default manager filters objects, Django Admin will hide them.
+
+Fix:
+```python
+class ProductAdmin(admin.ModelAdmin):
+    def get_queryset(self, request):
+        return Product.all_objects.all()
+```
+
+---
+
+## Related fields use default manager
+If `Category.products` relates to Product, it will use Product’s default manager.
+
+---
+
+## Managers do not affect migrations
+Migrations depend only on fields.
+
+---
+
+# 10. Common Mistakes and Pitfalls
+
+### ❌ Mistake: Using `Model.objects` inside Manager
+```python
+# WRONG
+def active(self):
+    return Product.objects.filter(is_active=True)
+```
+
+```python
+# CORRECT
+def active(self):
+    return self.get_queryset().filter(is_active=True)
+```
+
+### ❌ Filtering too aggressively in default manager
+This hides objects from admin, relations, serializers.
+
+---
+
+# 11. Best Practices
+
+- Use **custom QuerySets** for reusable, chainable logic
+- Keep Manager thin; put logic into QuerySet
+- Add `all_objects` when default manager is filtered
+- Don’t access `.objects` inside Manager
+- Use Managers for **query logic**, not heavy business logic
+
+---
+
+# 12. Full Working Example
+
+## models.py
+```python
+from django.db import models
+from django.utils import timezone
+
+
+class ProductQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_active=True)
+
+    def expensive(self):
+        return self.filter(price__gte=500)
+
+    def created_this_week(self):
+        return self.filter(
+            created_at__gte=timezone.now() - timezone.timedelta(days=7)
+        )
+
+
+class ProductManager(models.Manager):
+    def get_queryset(self):
+        return ProductQuerySet(self.model, using=self._db)
+
+    def active(self):
+        return self.get_queryset().active()
+
+    def expensive(self):
+        return self.get_queryset().expensive()
+
+    def created_this_week(self):
+        return self.get_queryset().created_this_week()
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    objects = ProductManager()
+    all_objects = models.Manager()
+
+    def __str__(self):
+        return self.name
+```
+
+---
+
+## admin.py
+```python
+class ProductAdmin(admin.ModelAdmin):
+    def get_queryset(self, request):
+        return Product.all_objects.all()
+
+admin.site.register(Product, ProductAdmin)
+```
+
+---
+
+## tests.py
+```python
+class ProductManagerTests(TestCase):
+    def test_active_manager(self):
+        p1 = Product.objects.create(name="A", price=100, is_active=True)
+        p2 = Product.objects.create(name="B", price=200, is_active=False)
+
+        self.assertEqual(Product.objects.count(), 1)
+        self.assertEqual(Product.all_objects.count(), 2)
+```
+
+---
+
+This documentation covers basics, intermediate, and advanced usage of Django Managers. Let me know if you want:
+- A diagram overview
+- PDF export
+- A GitHub-style README
+- Real-world patterns used at scale
+
