@@ -16,6 +16,12 @@ print(f'output after heappush: {A}')  # Output will show the new min-heap with t
 smallest = heapq.heappop(A)
 print(f'output after heappop: {A}, popped element: {smallest}')
 
+#pop kth element from the heap
+#time complexity O(k log n) and space complexity O(1)
+k = 3
+kth_element = None
+for _ in range(k):
+    kth_element = heapq.heappop(A)
 #heap sort
 #time complexity O(n log n) and space complexity O(n)
 def heap_sort(array):
@@ -49,4 +55,16 @@ heapq.heappush(tuple_heap, (1, 'task1'))
 heapq.heappush(tuple_heap, (3, 'task3'))
 
 print(f'output after pushing tuples: {tuple_heap}')  # Output will show the heap with tuples prioritized by the first element
-    
+
+#heapify a list of tuples
+#time complexity O(n) and space complexity O(1)
+tuple_list = [(3, 'task3'), (1, 'task1'), (2, 'task2')]
+heapq.heapify(tuple_list)
+print(f'output after heapifying tuples: {tuple_list}')  # Output will be a min-heap based on the first element of the tuples
+
+#pop k smallest elements from the tuple heap
+#time complexity O(k log n) and space complexity O(k)
+k_smallest = heapq.nsmallest(2, tuple_heap)
+print(f'output of k smallest tuples: {k_smallest}')  # Output will show the 2 tuples with the smallest first elements
+#print second element of the k smallest tuples
+second_elements = [item[1] for item in k_smallest]
