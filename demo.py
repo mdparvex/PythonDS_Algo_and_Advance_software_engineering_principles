@@ -73,25 +73,61 @@
 # if __name__ == "__main__":
 #     update_documents()
 
-import jwt
-import datetime
-import requests
+# import jwt
+# import datetime
+# import requests
 
-SECRET ="1cvb+kq@@h5nnuxla%j&zj$1eq$@SDDm0&dk&y3tn$^^l%dejc&5#" #"8c71b51a5c552594c00ffdc129a613dd58b53745cbcdec5c9f26204585599eec178cbd177242546068fcfd827b001a0052e8a7b9cce0361aa1f2f490c0956721"
+# SECRET ="1cvb+kq@@h5nnuxla%j&zj$1eq$@SDDm0&dk&y3tn$^^l%dejc&5#" #"8c71b51a5c552594c00ffdc129a613dd58b53745cbcdec5c9f26204585599eec178cbd177242546068fcfd827b001a0052e8a7b9cce0361aa1f2f490c0956721"
 
-def generate_service_token():
-    payload = {
-        "service": "admin_service",
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
-    }
-    return jwt.encode(payload, SECRET, algorithm="HS256")
+# def generate_service_token():
+#     payload = {
+#         "service": "admin_service",
+#         "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+#     }
+#     return jwt.encode(payload, SECRET, algorithm="HS256")
 
-token = generate_service_token()
-print(token)
+# token = generate_service_token()
+# print(token)
 # res = requests.get(
 #     "http://your-django-service/test/",
 #     headers={"Authorization": f"Bearer {token}"}
 # )
 
 # print(res.json())
+import hmac
+import hashlib
+import time
+
+OTP_HMAC_SECRET = "7548df58579cc2f3741792cd1b909db2f798b424d384148ec4b75b8af729c230"
+phone = "+8801623833730"
+timestamp = str(int(time.time()))
+
+payload = f"{phone}{timestamp}".encode()
+
+signature = hmac.new(
+    OTP_HMAC_SECRET.encode(),
+    payload,
+    hashlib.sha256
+).hexdigest()
+
+print("X-OTP-Timestamp:", timestamp)
+print("X-OTP-Signature:", signature)
+
+# def _check_phone_rate_limit(self, phone):
+#     key = f"otp:phone:{phone}"
+#     count = cache.get(key, 0)
+
+#     if count >= 5:
+#         raise Throttled(detail="Too many OTP requests for this number")
+
+#     cache.set(key, count + 1, timeout=600)  # 10 min
+
+# def _check_cooldown(self, phone):
+#     key = f"otp:cooldown:{phone}"
+#     if cache.get(key):
+#         self._default_error_message = "Please wait before requesting another OTP"
+#         return False
+
+#     cache.set(key, True, timeout=60)
+#     return True
 
