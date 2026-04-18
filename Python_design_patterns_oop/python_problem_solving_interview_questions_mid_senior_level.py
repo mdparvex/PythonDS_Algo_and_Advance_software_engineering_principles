@@ -195,6 +195,19 @@ def find_kth(nums, k):
 
     return quickselect(0, len(nums) - 1)
 
+#11. Move all zeros to the end of the array without using any sorting/default function algorithm.
+arr = [1, 2, 4, 0, 8, 0, 2, 0]
+
+def move_zero_to_end(arr):
+	l =0
+	for i in range(len(arr)):
+		if arr[i]!=0:
+			arr[l], arr[i] = arr[i], arr[l]
+			l+=1
+	return arr
+	
+print(move_zero_to_end(arr))
+
 # Key Insight
 # Average O(n)
 # Better than sorting (O(n log n))
