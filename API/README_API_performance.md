@@ -21,6 +21,25 @@ This documentation outlines **key strategies** to improve API performance with *
 
 ---
 
+---
+### Optimization Flow
+1. Measure first
+2. Inspect API response time
+3. Inspect DB query count
+4. Use Django Debug Toolbar / query logging / APM
+5. Identify N+1 queries
+6. select_related()
+7. prefetch_related()
+8. values()/only() when appropriate
+9. Add proper indexes
+10. Avoid unnecessary Python-side processing
+11. Pagination
+12. Cache expensive/repeated results
+13. Move heavy work to Celery
+14. Load test
+15. Monitor after deployment
+---
+
 ## 1. 🧠 Caching Responses
 
 **Problem:** Frequent requests for the same data cause unnecessary computation and database hits.  
