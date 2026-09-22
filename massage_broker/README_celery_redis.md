@@ -5791,6 +5791,100 @@ Can it be retried safely?
 
 Avoid storing secrets or sensitive credentials in task arguments/logs.
 
+## 28.2 Failed task track
+
+```python
+class TaskExecution(models.Model):
+    task_id = models.CharField(
+        max_length=255,
+        unique=True,
+    )
+
+    task_name = models.CharField(max_length=255)
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("PENDING", "Pending"),
+            ("RUNNING", "Running"),
+            ("RETRY", "Retry"),
+            ("SUCCESS", "Success"),
+            ("FAILED", "Failed"),
+        ],
+    )
+
+    started_at = models.DateTimeField(null=True)
+    finished_at = models.DateTimeField(null=True)
+
+    retry_count = models.PositiveIntegerField(default=0)
+
+    error = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+```
+you can create a reusable base task:
+
+```python
+from celery import Task
+from django.utils import timezone
+
+
+class TrackedTask(Task):
+
+    def before_start(self, task_id, args, kwargs):
+        TaskExecution.objects.update_or_create(
+            task_id=task_id,
+            defaults={
+                "task_name": self.name,
+                "status": "RUNNING",
+                "started_at": timezone.now(),
+            },
+        )
+
+    def on_retry(self, exc, task_id, args, kwargs, einfo):
+        TaskExecution.objects.filter(
+            task_id=task_id,
+        ).update(
+            status="RETRY",
+            retry_count=models.F("retry_count") + 1,
+            error=str(exc),
+        )
+
+    def on_success(self, retval, task_id, args, kwargs):
+        TaskExecution.objects.filter(
+            task_id=task_id,
+        ).update(
+            status="SUCCESS",
+            finished_at=timezone.now(),
+        )
+
+    def on_failure(
+        self,
+        exc,
+        task_id,
+        args,
+        kwargs,
+        einfo,
+    ):
+        TaskExecution.objects.filter(
+            task_id=task_id,
+        ).update(
+            status="FAILED",
+            finished_at=timezone.now(),
+            error=str(exc),
+        )
+```
+
+Then:
+
+```python
+
+@shared_task(base=TrackedTask)
+def process_order(order_id):
+    ...
+```
+
 ---
 
 # 29. Observability and Failure Signals
