@@ -1,11 +1,18 @@
-# Celery + Redis with Django — Advanced Technical Documentation
+# Celery + Redis with Django — Complete Technical Guide
 
-> A practical, production-oriented guide to asynchronous task processing with **Celery**, **Redis**, and **Django**.  
+> A practical, production-oriented guide to asynchronous task processing with **Celery**, **Redis**, and **Django**.
 > All application examples use **Python + Django**.
+>
+> **Part I** covers how Celery, Redis, and Django fit together — setup, task lifecycle, scheduling,
+> routing, and configuration. **Part II** goes deeper into production reliability — failure modes,
+> retries, idempotency, the transactional outbox pattern, and recovery — under the core assumption
+> that any task can fail, retry, run twice, or run late.
 
 ---
 
 ## Table of Contents
+
+### Part I — Foundations (Sections 1–37)
 
 1. [What Celery and Redis Solve](#1-what-celery-and-redis-solve)
 2. [Core Architecture](#2-core-architecture)
@@ -44,6 +51,50 @@
 35. [Troubleshooting Checklist](#35-troubleshooting-checklist)
 36. [Advanced Interview Questions](#36-advanced-interview-questions)
 37. [Quick Reference](#37-quick-reference)
+
+### Part II — Production Reliability & Failure Handling (Sections 38–71)
+
+38. [Reliability Architecture](#38-reliability-architecture)
+39. [The Real Celery Failure Model](#39-the-real-celery-failure-model)
+40. [Failure Classification](#40-failure-classification)
+41. [At-Least-Once Execution](#41-at-least-once-execution)
+42. [Basic Task Failure Handling](#42-basic-task-failure-handling)
+43. [Transient Failures and Retries](#43-transient-failures-and-retries)
+44. [Exponential Backoff and Jitter](#44-exponential-backoff-and-jitter)
+45. [HTTP/API Failure Handling](#45-httpapi-failure-handling)
+46. [Database Failure Handling](#46-database-failure-handling)
+47. [Django Transactions and `delay_on_commit`](#47-django-transactions-and-delay_on_commit)
+48. [Worker Crash and Late Acknowledgement](#48-worker-crash-and-late-acknowledgement)
+49. [Idempotency](#49-idempotency)
+50. [External Side Effects and Unknown Outcomes](#50-external-side-effects-and-unknown-outcomes)
+51. [Task Timeouts](#51-task-timeouts)
+52. [Task Expiration](#52-task-expiration)
+53. [Retry Exhaustion](#53-retry-exhaustion)
+54. [Poison Tasks](#54-poison-tasks)
+55. [Serialization and Task Registration Failures](#55-serialization-and-task-registration-failures)
+56. [Redis/Broker Failures](#56-redisbroker-failures)
+57. [Result Backend Failures](#57-result-backend-failures)
+58. [Celery Beat Failures](#58-celery-beat-failures)
+59. [Periodic Task Overlap](#59-periodic-task-overlap)
+60. [Concurrency, Prefetch, and Queue Starvation](#60-concurrency-prefetch-and-queue-starvation)
+61. [Retry Storms](#61-retry-storms)
+62. [Database Locks and Connection Exhaustion](#62-database-locks-and-connection-exhaustion)
+63. [Batch and Partial Failure Handling](#63-batch-and-partial-failure-handling)
+64. [Transactional Outbox Pattern](#64-transactional-outbox-pattern)
+65. [Dead-Letter and Quarantine Strategy](#65-dead-letter-and-quarantine-strategy)
+66. [Observability and Failure Signals](#66-observability-and-failure-signals)
+67. [Production Task Template](#67-production-task-template)
+68. [Failure Decision Tree](#68-failure-decision-tree)
+69. [Failure Matrix](#69-failure-matrix)
+70. [Production Checklist](#70-production-checklist)
+71. [Final Production Architecture](#71-final-production-architecture)
+
+---
+
+# Celery + Redis with Django — Advanced Technical Documentation
+
+> A practical, production-oriented guide to asynchronous task processing with **Celery**, **Redis**, and **Django**.  
+> All application examples use **Python + Django**.
 
 ---
 
@@ -328,6 +379,60 @@ CELERY_RESULT_BACKEND = "redis://redis:6379/1"
 This is a logical separation, not the same thing as completely separate Redis servers.
 
 For strong isolation, use separate Redis instances/clusters.
+
+---
+
+## How Redis actually delivers messages (and why it matters)
+
+Redis was never designed as a message broker — Celery emulates one on top of Redis's plain data
+structures, and that emulation has real consequences.
+
+```text
+Celery task queue  ==  a Redis LIST
+
+Producer:  LPUSH queue_name  <task message>
+Worker:    BRPOP queue_name  (blocking pop)
+```
+
+Unlike RabbitMQ, Redis has **no native concept of an unacknowledged message sitting "in flight."**
+Once a worker pops a message off the list with `BRPOP`, Redis's own bookkeeping has nothing left to
+redeliver — the message is simply gone from that list. So how does `task_acks_late=True`
+(Section 10) work at all with Redis?
+
+Celery's Redis transport fakes redelivery using a separate "unacked" structure plus a
+**visibility timeout**: when a worker pops a message, Celery also records it as "in progress." If
+no acknowledgement arrives within the visibility timeout, Celery assumes the worker died and
+puts the message back on the queue — *even if the original worker is still quietly running it*.
+
+```text
+t=0s     Worker pops task, starts executing
+t=0..N   Task is still running (e.g. a slow report)
+t=visibility_timeout   Celery assumes the worker died -> redelivers the task
+t=N      Original worker finishes and ACKs (too late — a duplicate is already running)
+```
+
+**This is the single most common cause of "my task ran twice" reports on Celery + Redis.** It has
+nothing to do with retries or crashes — it is a timing mismatch between the visibility timeout and
+the actual task runtime.
+
+Configure it explicitly, larger than your longest expected task duration:
+
+```python
+CELERY_TASK_ACKS_LATE = True
+
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "visibility_timeout": 43200,  # seconds (12 hours) — must exceed your longest task's runtime
+}
+```
+
+Practical guidance:
+
+- If a task can legitimately run longer than the visibility timeout, either raise the timeout or
+  split the task into smaller chunks.
+- This is one more reason (in addition to at-least-once delivery generally) that
+  [idempotency](#12-idempotency) is not optional for Redis-backed Celery tasks.
+- RabbitMQ does not have this specific failure mode, because it tracks unacknowledged messages
+  natively per-consumer rather than via a timeout guess.
 
 ---
 
@@ -1536,29 +1641,72 @@ This provides workload isolation.
 
 # 19. Priority
 
-Celery supports task priorities depending on the broker/transport and configuration.
+Celery supports task priorities, but what "priority" actually *does* is entirely broker-specific —
+and with Redis, it does far less than most people expect.
 
-Example:
+## How Redis "priority" actually works
+
+Redis has no native priority queue. To emulate one, Celery's Redis transport creates a **separate
+Redis list per priority level** (by default, priorities 0–9 map into a handful of internal queue
+buckets) and has workers poll the higher-priority lists first.
+
+```text
+queue_name\x062     <- priority band A (checked first)
+queue_name\x066     <- priority band B
+queue_name\x069     <- priority band C (checked last)
+```
+
+Consequences of this design:
+
+- Priority only affects the **order in which a single worker picks up already-queued tasks**. It
+  cannot preempt a task that is already executing.
+- If only one worker process is consuming the queue and it's busy, a "priority 9" task still waits
+  behind whatever is currently running.
+- With Redis, priority is a *coarse* hint (effectively a handful of buckets), not a fine-grained
+  ordering like RabbitMQ's native priority queues (which support up to 255 distinct levels backed
+  by real broker-side ordering).
+
+## Example
 
 ```python
 send_sms.apply_async(
     args=[user_id],
-    priority=9,
+    priority=9,   # higher number = higher priority
 )
-```
 
-Lower-priority background work:
-
-```python
 generate_report.apply_async(
     args=[report_id],
     priority=1,
 )
 ```
 
-Priority behavior is broker-specific, so verify the exact semantics for your production broker.
+You must also declare the queue with `x-max-priority` (via `Queue(..., queue_arguments={"x-max-priority": 10})`)
+for priority to have any effect at all — without it, Celery silently ignores the `priority` kwarg.
 
-Do not assume Redis priority behaves exactly like RabbitMQ priority queues.
+## What to use instead, for Redis
+
+For most Redis-based systems, **dedicated queues consumed by dedicated workers** give more
+reliable and easier-to-reason-about prioritization than the `priority` kwarg:
+
+```python
+# settings.py
+CELERY_TASK_ROUTES = {
+    "orders.tasks.send_sms": {"queue": "high_priority"},
+    "orders.tasks.generate_report": {"queue": "low_priority"},
+}
+```
+
+```bash
+# Dedicate more worker capacity to the high-priority queue
+celery -A myproject worker -Q high_priority -c 8
+celery -A myproject worker -Q low_priority -c 2
+```
+
+This guarantees high-priority work is never starved by a backlog of low-priority tasks, which the
+`priority` kwarg alone cannot guarantee on Redis.
+
+Do not assume Redis priority behaves like RabbitMQ priority queues — verify against your actual
+broker before relying on it for anything time-sensitive.
 
 ---
 
@@ -2824,6 +2972,129 @@ Benefits:
 
 ---
 
+## Pattern 6: Transactional Outbox
+
+`transaction.on_commit()` (Pattern 1) is enough for most workflows, but it has one gap: if the
+Celery broker (Redis) is down at the moment `on_commit()` fires, the callback raises, the task is
+never enqueued, and — because the database transaction has already committed — that failure is
+silent. The order (or payment, or shipment) exists in the database, but no task was ever created
+to act on it.
+
+The **Transactional Outbox Pattern** closes that gap by writing the "intent to publish a task"
+into the *same database transaction* as the business change, instead of talking to Redis directly.
+A separate, independent publisher then reads outbox rows and enqueues the real Celery tasks,
+retrying on its own schedule if Redis is unavailable.
+
+```text
+Django view / service
+        |
+        v
++-----------------------------+
+|      DB transaction         |
+|                              |
+|  1. Save business row        |   e.g. Order.objects.create(...)
+|  2. Save OutboxEvent row      |   e.g. "order.created", order.id
+|                              |
++--------------+---------------+
+               |
+             COMMIT  (atomic: both rows land, or neither does)
+               |
+               v
+      +------------------+
+      | Outbox Publisher |   (Beat task, cron, or small daemon)
+      +--------+---------+
+               |
+      reads unpublished rows
+               |
+               v
+        Redis Broker  --->  Celery Worker  --->  Task executes
+               |
+               v
+      mark OutboxEvent as published
+```
+
+**Outbox model**
+
+```python
+import uuid
+from django.db import models
+
+
+class OutboxEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event_type = models.CharField(max_length=255)       # e.g. "order.created"
+    payload = models.JSONField()                         # e.g. {"order_id": 42}
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["published_at", "created_at"])]
+```
+
+**Writing the outbox row in the same transaction as the business change**
+
+```python
+from django.db import transaction
+
+
+def create_order(data):
+    with transaction.atomic():
+        order = Order.objects.create(**data)
+
+        OutboxEvent.objects.create(
+            event_type="order.created",
+            payload={"order_id": order.id},
+        )
+
+    return order
+```
+
+No call to Celery happens here at all. If the transaction rolls back, the outbox row rolls back
+with it — there is no way to create an order without also recording the intent to process it.
+
+**Publishing outbox events (a periodic Celery Beat task)**
+
+```python
+from celery import shared_task
+from django.utils import timezone
+
+
+@shared_task
+def publish_outbox_events():
+    events = (
+        OutboxEvent.objects
+        .filter(published_at__isnull=True)
+        .order_by("created_at")[:100]
+    )
+
+    for event in events:
+        if event.event_type == "order.created":
+            process_order.delay(event.payload["order_id"])
+
+        event.published_at = timezone.now()
+        event.save(update_fields=["published_at"])
+```
+
+Schedule it frequently (e.g. every few seconds via `django-celery-beat`) so the delay between
+"business event committed" and "task enqueued" stays small.
+
+**When to reach for this pattern**
+
+| Situation | Recommended approach |
+|---|---|
+| Standard workflows, Redis is reliably available | Pattern 1 (`transaction.on_commit()`) |
+| Task publication must never be silently lost, even if Redis is briefly down | Pattern 6 (Outbox) |
+| High-value events (payments, orders, shipments) that downstream systems depend on | Pattern 6 (Outbox) |
+
+The trade-off is added complexity (an extra table, an extra publisher process) and a small
+publish delay, in exchange for a durability guarantee: **once the database transaction commits,
+the event *will* eventually be published**, regardless of Redis's availability at that instant.
+
+> A full deep-dive on this pattern — including dead-letter handling for events that repeatedly
+> fail to publish — is in [Section 64, Transactional Outbox Pattern](#64-transactional-outbox-pattern).
+
+---
+
 # 34. End-to-End Example
 
 Let's build an order notification workflow.
@@ -3488,56 +3759,15 @@ IDEMPOTENCY IS REQUIRED
 
 That single principle explains many of the most difficult Celery production bugs.
 
+---
 
+## Part II — Production Reliability & Failure Handling
 
-# Celery Task Failure Handling — Advanced Django + Redis
-
-> **Scope:** Production-grade failure handling for Celery tasks running with Django and Redis.
->
-> **Core principle:** Design every task assuming it can fail, retry, execute more than once, execute late, or be interrupted at any point.
+> This part goes deeper: it assumes tasks *will* fail, retry, duplicate, or run late, and shows how to design a Celery system that still produces a correct business outcome.
 
 ---
 
-## Table of Contents
-
-1. [Reliability Architecture](#1-reliability-architecture)
-2. [The Real Celery Failure Model](#2-the-real-celery-failure-model)
-3. [Failure Classification](#3-failure-classification)
-4. [At-Least-Once Execution](#4-at-least-once-execution)
-5. [Basic Task Failure Handling](#5-basic-task-failure-handling)
-6. [Transient Failures and Retries](#6-transient-failures-and-retries)
-7. [Exponential Backoff and Jitter](#7-exponential-backoff-and-jitter)
-8. [HTTP/API Failure Handling](#8-httpapi-failure-handling)
-9. [Database Failure Handling](#9-database-failure-handling)
-10. [Django Transactions and `delay_on_commit`](#10-django-transactions-and-delay_on_commit)
-11. [Worker Crash and Late Acknowledgement](#11-worker-crash-and-late-acknowledgement)
-12. [Idempotency](#12-idempotency)
-13. [External Side Effects and Unknown Outcomes](#13-external-side-effects-and-unknown-outcomes)
-14. [Task Timeouts](#14-task-timeouts)
-15. [Task Expiration](#15-task-expiration)
-16. [Retry Exhaustion](#16-retry-exhaustion)
-17. [Poison Tasks](#17-poison-tasks)
-18. [Serialization and Task Registration Failures](#18-serialization-and-task-registration-failures)
-19. [Redis/Broker Failures](#19-redisbroker-failures)
-20. [Result Backend Failures](#20-result-backend-failures)
-21. [Celery Beat Failures](#21-celery-beat-failures)
-22. [Periodic Task Overlap](#22-periodic-task-overlap)
-23. [Concurrency, Prefetch, and Queue Starvation](#23-concurrency-prefetch-and-queue-starvation)
-24. [Retry Storms](#24-retry-storms)
-25. [Database Locks and Connection Exhaustion](#25-database-locks-and-connection-exhaustion)
-26. [Batch and Partial Failure Handling](#26-batch-and-partial-failure-handling)
-27. [Transactional Outbox Pattern](#27-transactional-outbox-pattern)
-28. [Dead-Letter and Quarantine Strategy](#28-dead-letter-and-quarantine-strategy)
-29. [Observability and Failure Signals](#29-observability-and-failure-signals)
-30. [Production Task Template](#30-production-task-template)
-31. [Failure Decision Tree](#31-failure-decision-tree)
-32. [Failure Matrix](#32-failure-matrix)
-33. [Production Checklist](#33-production-checklist)
-34. [Final Production Architecture](#34-final-production-architecture)
-
----
-
-# 1. Reliability Architecture
+# 38. Reliability Architecture
 
 A production Django + Celery + Redis system should be understood as a distributed system rather than simply a background-job library.
 
@@ -3632,7 +3862,7 @@ Django
 
 ---
 
-# 2. The Real Celery Failure Model
+# 39. The Real Celery Failure Model
 
 A simplistic model is:
 
@@ -3761,7 +3991,7 @@ Blindly retrying can create a duplicate charge.
 
 ---
 
-# 3. Failure Classification
+# 40. Failure Classification
 
 The first step in handling failures is classifying them.
 
@@ -3802,7 +4032,7 @@ Unknown outcome
 
 ---
 
-# 4. At-Least-Once Execution
+# 41. At-Least-Once Execution
 
 For production design, treat Celery workloads as potentially **at-least-once**.
 
@@ -3845,9 +4075,52 @@ Durable business state
 Reconciliation
 ```
 
+## A concrete duplicate-execution example
+
+This is what the abstract diagram above looks like in real code — and why the "obvious" version is
+unsafe.
+
+```python
+# UNSAFE: vulnerable to the at-least-once redelivery window
+@shared_task(bind=True, acks_late=True)
+def grant_signup_bonus(self, user_id):
+    wallet = Wallet.objects.get(user_id=user_id)
+    wallet.balance += 10  # <-- if this task is redelivered, the user is credited twice
+    wallet.save(update_fields=["balance"])
+```
+
+```text
+Worker A pops task, credits wallet (+10), crashes before ACK
+        |
+        v
+Broker redelivers (visibility timeout, Section 4)
+        |
+        v
+Worker B pops the same task, credits wallet again (+10)
+        |
+        v
+User now has +20 instead of +10
+```
+
+```python
+# SAFE: the operation is idempotent regardless of how many times it runs
+@shared_task(bind=True, acks_late=True)
+def grant_signup_bonus(self, user_id):
+    _, created = SignupBonus.objects.get_or_create(user_id=user_id)
+
+    if not created:
+        return "already-granted"  # second (or third) delivery is a safe no-op
+
+    Wallet.objects.filter(user_id=user_id).update(balance=F("balance") + 10)
+```
+
+The fix isn't "add a retry" or "add a lock" — it's making the *outcome* of running the task twice
+identical to running it once, using a database uniqueness constraint (`SignupBonus.user_id` should
+be unique) as the actual source of truth.
+
 ---
 
-# 5. Basic Task Failure Handling
+# 42. Basic Task Failure Handling
 
 A normal Django task:
 
@@ -3935,7 +4208,7 @@ as if they were identical.
 
 ---
 
-# 6. Transient Failures and Retries
+# 43. Transient Failures and Retries
 
 A transient failure is one that may succeed later.
 
@@ -3989,7 +4262,7 @@ This is convenient for well-defined transient exception classes.
 
 ---
 
-# 7. Exponential Backoff and Jitter
+# 44. Exponential Backoff and Jitter
 
 Immediate retrying is dangerous.
 
@@ -4084,7 +4357,7 @@ unless there is a specific reason not to.
 
 ---
 
-# 8. HTTP/API Failure Handling
+# 45. HTTP/API Failure Handling
 
 Not every HTTP error should be retried.
 
@@ -4192,7 +4465,7 @@ Do not hammer a rate-limited service.
 
 ---
 
-# 9. Database Failure Handling
+# 46. Database Failure Handling
 
 Database failures are not all equivalent.
 
@@ -4272,7 +4545,7 @@ However, if the task was published before the transaction committed, the correct
 
 ---
 
-# 10. Django Transactions and `delay_on_commit`
+# 47. Django Transactions and `delay_on_commit`
 
 This is one of the most important Django + Celery failure cases.
 
@@ -4374,7 +4647,7 @@ That is where the Outbox Pattern becomes useful.
 
 ---
 
-# 11. Worker Crash and Late Acknowledgement
+# 48. Worker Crash and Late Acknowledgement
 
 One of the most important Celery reliability settings is late acknowledgement.
 
@@ -4453,7 +4726,7 @@ Idempotency required
 
 ---
 
-# 12. Idempotency
+# 49. Idempotency
 
 An idempotent task produces the same intended business outcome even if it executes multiple times.
 
@@ -4577,7 +4850,7 @@ Use your own business identifier.
 
 ---
 
-# 13. External Side Effects and Unknown Outcomes
+# 50. External Side Effects and Unknown Outcomes
 
 This is the most subtle category.
 
@@ -4687,7 +4960,7 @@ retry only if it is proven safe
 
 ---
 
-# 14. Task Timeouts
+# 51. Task Timeouts
 
 A task can hang because of:
 
@@ -4765,16 +5038,24 @@ Avoid indefinite network operations.
 
 ---
 
-# 15. Task Expiration
+# 52. Task Expiration
 
-Some tasks become useless after a certain point.
-
-Example:
+Some tasks become useless after a certain point — an OTP notification sent an hour late is worse
+than not sending it at all. `expires` tells Celery to silently drop the task if a worker hasn't
+started it before the deadline, instead of running it late.
 
 ```python
 send_notification.apply_async(
     args=[user_id],
-    expires=300,
+    expires=300,  # seconds from now, OR a datetime
+)
+
+# equivalently, with an absolute time:
+from datetime import datetime, timedelta, timezone as dt_timezone
+
+send_notification.apply_async(
+    args=[user_id],
+    expires=datetime.now(dt_timezone.utc) + timedelta(minutes=5),
 )
 ```
 
@@ -4787,7 +5068,29 @@ time-sensitive reminders
 short-lived synchronization
 ```
 
-Expiration is not a replacement for retry handling.
+## What actually happens when a task expires
+
+An expired task does **not** raise an exception inside your task function — your task code never
+runs at all. Celery marks it `REVOKED` internally and the worker logs and discards it before
+execution begins. If you need to know *that* it happened (for metrics or a user-facing fallback),
+you have to check for it explicitly via a signal:
+
+```python
+from celery.signals import task_revoked
+
+@task_revoked.connect
+def handle_expired_task(request, terminated, signum, expired, **kwargs):
+    if expired:
+        logger.warning("Task expired before execution", extra={"task_id": request.id})
+```
+
+## Caveats
+
+- **Clock skew matters.** `expires` is evaluated using the worker's clock against the timestamp set
+  by the producer. In a multi-host deployment, make sure NTP is running everywhere — a few seconds
+  of skew can cause tasks to expire (or fail to expire) unexpectedly.
+- Expiration is not a replacement for retry handling — a task can fail for reasons unrelated to
+  timing, and an expired task is not the same as a *failed* one (Section 53).
 
 A task that expires is generally a business decision:
 
@@ -4797,7 +5100,7 @@ A task that expires is generally a business decision:
 
 ---
 
-# 16. Retry Exhaustion
+# 53. Retry Exhaustion
 
 Suppose:
 
@@ -4818,9 +5121,39 @@ Attempt 5 → failure
         terminal failure
 ```
 
-At this point the system should do more than simply log an exception.
+At this point the system should do more than simply log an exception. Celery raises
+`celery.exceptions.MaxRetriesExceededError` on the final attempt — that is your hook to take
+action instead of letting the task disappear into the worker log.
 
-Possible actions:
+## A concrete handler
+
+`self.retry()` re-raises internally, so a local `try/except MaxRetriesExceededError` around the
+call site won't catch the final failure. The reliable hook is the task's `on_failure` method (via a
+custom base class) or the `task_failure` signal — both fire once, exactly on terminal failure:
+
+```python
+from celery import Task
+from celery.signals import task_failure
+
+
+class ReliableTask(Task):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        if isinstance(exc, MaxRetriesExceededError):
+            order_id = args[0]
+            Order.objects.filter(pk=order_id).update(sync_status="failed")
+            logger.error(
+                "Retries exhausted for order sync",
+                extra={"order_id": order_id, "task_id": task_id},
+            )
+            notify_ops_channel(f"Order {order_id} failed to sync after all retries")
+
+
+@shared_task(base=ReliableTask, bind=True, max_retries=5, retry_backoff=True)
+def sync_order_to_warehouse(self, order_id):
+    ...
+```
+
+## Possible actions on terminal failure
 
 ```text
 1. Alert operations
@@ -4832,11 +5165,12 @@ Possible actions:
 7. Allow manual retry
 ```
 
-For critical business workflows, terminal failure should be visible.
+For critical business workflows, terminal failure should be visible — a customer's order silently
+stuck in `sync_status="pending"` forever is a worse outcome than a loud, alertable failure.
 
 ---
 
-# 17. Poison Tasks
+# 54. Poison Tasks
 
 A poison task is a task that will fail repeatedly for the same permanent reason.
 
@@ -4901,7 +5235,7 @@ Never use unlimited retries casually.
 
 ---
 
-# 18. Serialization and Task Registration Failures
+# 55. Serialization and Task Registration Failures
 
 ## 18.1 Serialization failure
 
@@ -5004,7 +5338,7 @@ Do not rename/delete task names while old messages may still exist.
 
 ---
 
-# 19. Redis/Broker Failures
+# 56. Redis/Broker Failures
 
 Redis is a critical component when used as the Celery broker.
 
@@ -5098,7 +5432,7 @@ For critical workloads, choose Redis persistence, memory limits, HA, and evictio
 
 ---
 
-# 20. Result Backend Failures
+# 57. Result Backend Failures
 
 A common architecture is:
 
@@ -5146,7 +5480,7 @@ Celery result state is operational metadata.
 
 ---
 
-# 21. Celery Beat Failures
+# 58. Celery Beat Failures
 
 Beat is responsible for creating periodic task messages.
 
@@ -5221,7 +5555,7 @@ Use one logical scheduler per schedule unless you have an explicit distributed s
 
 ---
 
-# 22. Periodic Task Overlap
+# 59. Periodic Task Overlap
 
 Suppose:
 
@@ -5295,7 +5629,7 @@ For strict correctness, database constraints and transactions are often preferab
 
 ---
 
-# 23. Concurrency, Prefetch, and Queue Starvation
+# 60. Concurrency, Prefetch, and Queue Starvation
 
 Suppose:
 
@@ -5379,7 +5713,7 @@ This prevents heavy reports from starving latency-sensitive notifications.
 
 ---
 
-# 24. Retry Storms
+# 61. Retry Storms
 
 A retry storm occurs when a shared dependency fails and many tasks retry simultaneously.
 
@@ -5440,7 +5774,7 @@ Celery is not itself a complete circuit-breaker implementation. Implement circui
 
 ---
 
-# 25. Database Locks and Connection Exhaustion
+# 62. Database Locks and Connection Exhaustion
 
 ## 25.1 Long transactions
 
@@ -5487,7 +5821,7 @@ Always calculate worker concurrency against database capacity.
 
 ---
 
-# 26. Batch and Partial Failure Handling
+# 63. Batch and Partial Failure Handling
 
 Consider:
 
@@ -5560,7 +5894,7 @@ This makes recovery deterministic.
 
 ---
 
-# 27. Transactional Outbox Pattern
+# 64. Transactional Outbox Pattern
 
 `transaction.on_commit()` prevents the task from running before the transaction commits, but it does not make database commit and message publication atomic.
 
@@ -5718,7 +6052,7 @@ Idempotent consumer
 
 ---
 
-# 28. Dead-Letter and Quarantine Strategy
+# 65. Dead-Letter and Quarantine Strategy
 
 After a task reaches terminal failure:
 
@@ -5887,7 +6221,7 @@ def process_order(order_id):
 
 ---
 
-# 29. Observability and Failure Signals
+# 66. Observability and Failure Signals
 
 Failure handling without observability is incomplete.
 
@@ -5978,7 +6312,7 @@ Avoid putting complex business recovery logic into a global signal unless necess
 
 ---
 
-# 30. Production Task Template
+# 67. Production Task Template
 
 A production-oriented task can combine:
 
@@ -6122,7 +6456,7 @@ contains an external payment or shipment side effect, the task needs explicit id
 
 ---
 
-# 31. Failure Decision Tree
+# 68. Failure Decision Tree
 
 Use this decision tree whenever a task fails:
 
@@ -6174,7 +6508,7 @@ If yes, do not blindly retry.
 
 ---
 
-# 32. Failure Matrix
+# 69. Failure Matrix
 
 | Scenario | Recommended Action |
 |---|---|
@@ -6212,7 +6546,7 @@ If yes, do not blindly retry.
 
 ---
 
-# 33. Production Checklist
+# 70. Production Checklist
 
 ## Task design
 
@@ -6293,7 +6627,7 @@ If yes, do not blindly retry.
 
 ---
 
-# 34. Final Production Architecture
+# 71. Final Production Architecture
 
 For a critical Django + Celery + Redis system, a strong architecture is:
 
